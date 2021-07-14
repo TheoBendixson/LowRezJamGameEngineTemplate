@@ -414,7 +414,7 @@ int main(int argc, const char * argv[])
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
     glPixelStorei(GL_PACK_ALIGNMENT, 1);
 
-    u32 AtlasWidthHeightInUnits = 15;
+    u32 AtlasWidthHeightInUnits = 4;
     RenderCommands.TileLayer.TextureAtlasUnitWidth = AtlasWidthHeightInUnits;
     RenderCommands.TileLayer.TextureAtlasUnitHeight = AtlasWidthHeightInUnits;
 

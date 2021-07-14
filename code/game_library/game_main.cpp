@@ -13,7 +13,7 @@ LoadTextures(game_memory *Memory, game_texture_buffer *GameTextureBuffer,
     InitializeArena(ScratchArena, Memory->TransientStorageSize, (u8 *)Memory->TransientStorage);
     InitializeTextureBuffer(ScratchArena, GameTextureBuffer, 30);
 
-    read_file_result AssetPackFile = PlatformReadPNGFile("LowRez.png");
+    read_file_result AssetPackFile = PlatformReadPNGFile("LowRez16.png");
 
     if (AssetPackFile.ContentsSize > 0)
     {
@@ -23,8 +23,8 @@ LoadTextures(game_memory *Memory, game_texture_buffer *GameTextureBuffer,
         TileTextureSpriteSheet.Data = (u32 *)AssetPackFile.Contents;
         TileTextureSpriteSheet.TextureWidth = 8;
         TileTextureSpriteSheet.TextureHeight = 8;
-        TileTextureSpriteSheet.TexturesPerRow = 31;
-        TileTextureSpriteSheet.TexturesPerColumn = 45;
+        TileTextureSpriteSheet.TexturesPerRow = 2;
+        TileTextureSpriteSheet.TexturesPerColumn = 2;
 
         spritesheet_section TileSection = {};
         TileSection.XOffset = 0;
