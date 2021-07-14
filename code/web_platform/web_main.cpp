@@ -410,7 +410,7 @@ int main(int argc, const char * argv[])
     RenderCommands.TileLayer.TextureAtlasUnitWidth = AtlasWidthHeightInUnits;
     RenderCommands.TileLayer.TextureAtlasUnitHeight = AtlasWidthHeightInUnits;
 
-    u32 AtlastUnitWidthHeightInPixels = 24;
+    u32 AtlastUnitWidthHeightInPixels = 8;
     u32 AtlasTextureWidthHeightInPixels = AtlasWidthHeightInUnits*AtlastUnitWidthHeightInPixels;
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, AtlasTextureWidthHeightInPixels, AtlasTextureWidthHeightInPixels, 
                  0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
