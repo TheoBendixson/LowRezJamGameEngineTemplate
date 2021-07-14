@@ -1,6 +1,6 @@
 echo "Building Low Rez Game Engine (Web Assembly Target)"
 
-WEB_PLATFORM_LAYER_PATH="../../code/web_platform/"
+WEB_PLATFORM_LAYER_PATH="../../code/web_platform"
 
 COMPILER_FLAGS="-s ALLOW_MEMORY_GROWTH=1
                 -fsanitize=address
@@ -10,5 +10,15 @@ COMPILER_FLAGS="-s ALLOW_MEMORY_GROWTH=1
                 -s WASM=1
                 -s USE_SDL=2"
 
-mkdir -p ../../build/web_assembly
-pushd ../../build/web_assembly
+BUILD_DIRECTORY="../../build/web_assembly"
+mkdir -p $BUILD_DIRECTORY 
+pushd $BUILD_DIRECTORY 
+
+echo "Debug Build"
+emcc "-Wno-writable-strings" -g ${WEB_PLATFORM_LAYER_PATH}/main.cpp -std=c++11 ${COMPILER_FLAGS} -DWEBASM=1 --profiling-funcs \
+                                       --preload-file "../../resources/" -o game.js
+
+cp ${WEB_PLATFORM_LAYER_PATH}/game.html "./game.html"
+popd
+
+echo "Finished Building Low Rez Game Engine (Web Assembly)"
