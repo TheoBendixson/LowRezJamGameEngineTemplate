@@ -15,7 +15,7 @@ mkdir -p $BUILD_DIRECTORY
 pushd $BUILD_DIRECTORY 
 
 echo "Debug Build"
-emcc "-Wno-writable-strings" -g ${WEB_PLATFORM_LAYER_PATH}/main.cpp -std=c++11 ${COMPILER_FLAGS} -DWEBASM=1 --profiling-funcs \
+emcc "-Wno-writable-strings" -g ${WEB_PLATFORM_LAYER_PATH}/web_main.cpp -std=c++11 ${COMPILER_FLAGS} -DWEBASM=1 --profiling-funcs \
                                        --preload-file "../../resources/" -o game.js
 
 cp ${WEB_PLATFORM_LAYER_PATH}/game.html "./game.html"

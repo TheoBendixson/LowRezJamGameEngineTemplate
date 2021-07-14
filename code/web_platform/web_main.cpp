@@ -3,10 +3,68 @@
 #include <stdio.h>
 #include <SDL_opengles2.h>
 
+#define STB_IMAGE_IMPLEMENTATION
+#define STBI_NO_JPEG
+#define STBI_NO_BMP
+#define STBI_NO_TGA
+#define STBI_NO_PSD
+#define STBI_NO_HDR
+#define STBI_NO_PIC
+#define STBI_NO_GIF
+#define STBI_NO_PNM
+#include "stb_image.h"
+
 #include "web_platform_shaders.h"
-#include "../game_library/game_main.cpp"
+
+#include "web_main.h"
 
 #define MAX_TEXTURES    200
+
+PLATFORM_READ_PNG_FILE(PlatformReadPNGFile)
+{
+    char LocalFilename[200];
+
+    for (u32 Index = 0;
+         Index < 200;
+         Index++)
+    {
+        LocalFilename[Index] = '\0';
+    }
+
+    LocalFilename[0] = 'r';
+    LocalFilename[1] = 'e';
+    LocalFilename[2] = 's';
+    LocalFilename[3] = 'o';
+    LocalFilename[4] = 'u';
+    LocalFilename[5] = 'r';
+    LocalFilename[6] = 'c';
+    LocalFilename[7] = 'e';
+    LocalFilename[8] = 's';
+    LocalFilename[9] = '/';
+
+    char *scan = Filename;
+
+    u32 CharacterIndex = 10;
+
+    while(*scan != '\0')
+    {
+        LocalFilename[CharacterIndex] = *scan++;
+        CharacterIndex++;
+    }
+
+    read_file_result Result = {};
+
+    int X,Y,N;
+    u32 *ImageData = (u32 *)stbi_load(LocalFilename, &X, &Y, &N, 0);
+
+    if (X > 0 && Y > 0 && ImageData != NULL)
+    {
+        Result.Contents = ImageData;
+        Result.ContentsSize = X*Y*sizeof(u32); 
+    }
+
+    return Result;
+}
 
 PLATFORM_READ_ENTIRE_FILE(PlatformReadEntireFile) 
 {
@@ -115,6 +173,8 @@ PLATFORM_FREE_FILE_MEMORY(PlatformFreeFileMemory)
         free(Memory);
     }
 }
+
+#include "../game_library/game_main.cpp"
 
 struct render_loop_arguments
 {
@@ -326,9 +386,6 @@ int main(int argc, const char * argv[])
     u64 TransientStoragePartitionSize = Megabytes(32);
 
     game_texture_buffer GameTextureBuffer = {};
-    GameTextureBuffer.TexturesLoaded = 0;
-    GameTextureBuffer.MaxTextures = MAX_TEXTURES;
-
     LoadTextures(&GameMemory, &GameTextureBuffer, &TextureMap);
 
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);

@@ -1,7 +1,7 @@
 
 struct game_texture_map
 {
-
+    u32 FirstTile;
 };
 
 struct game_texture
