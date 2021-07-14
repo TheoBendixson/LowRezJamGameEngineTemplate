@@ -277,7 +277,6 @@ void RenderLoop(void *Arg)
 
     render_layer *TileLayer = &RenderCommands.TileLayer;
     TileLayer->VertexCount = 0;
-    TileLayer->MaxVertices = 4000;
 
     for(u32 Vertex = 0;
         Vertex < TileLayer->MaxVertices;
@@ -287,6 +286,9 @@ void RenderLoop(void *Arg)
         TileLayer->TextureCoordinates[Vertex] = 0.0f;
     }
 
+    // TODO: (Ted)  Bring Back the player layer
+
+    /*
     render_layer *PlayerLayer = &RenderCommands.PlayerLayer;
     PlayerLayer->VertexCount = 0;
     PlayerLayer->MaxVertices = 100;
@@ -297,7 +299,7 @@ void RenderLoop(void *Arg)
     {
         PlayerLayer->Vertices[Vertex] = 0;
         PlayerLayer->TextureCoordinates[Vertex] = 0;
-    }
+    }*/
 
     GameUpdateAndRender(&GameMemory, &TextureMap, &GameInput, &RenderCommands);
 
@@ -385,6 +387,12 @@ int main(int argc, const char * argv[])
 
     u64 TransientStoragePartitionSize = Megabytes(32);
 
+    render_layer *TileLayer = &RenderCommands.TileLayer;
+    TileLayer->VertexCount = 0;
+    TileLayer->MaxVertices = 4000;
+    TileLayer->Vertices = (GLfloat *)malloc(sizeof(GLfloat)*TileLayer->MaxVertices);
+    TileLayer->TextureCoordinates = (GLfloat *)malloc(sizeof(GLfloat)*TileLayer->MaxVertices);
+
     game_texture_buffer GameTextureBuffer = {};
     LoadTextures(&GameMemory, &GameTextureBuffer, &TextureMap);
 
@@ -416,7 +424,7 @@ int main(int argc, const char * argv[])
                  0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
 
     for (u32 TextureIndex = 0;
-         TextureIndex < GameTextureBuffer.MaxTextures;
+         TextureIndex < GameTextureBuffer.TexturesLoaded;
          TextureIndex++)
     {
         u32 YPosition = TextureIndex/AtlasWidthHeightInUnits;
@@ -466,6 +474,8 @@ int main(int argc, const char * argv[])
     {
         free(GameTextureBuffer.Textures[TextureIndex].Data);
     }*/
+
+    // TODO: (Ted)  Clear the transient storage arena
 
     GLuint VertexShader = glCreateShader(GL_VERTEX_SHADER);
     glShaderSource(VertexShader, 1, &VertexSource, nullptr);
