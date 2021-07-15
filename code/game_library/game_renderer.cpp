@@ -20,12 +20,14 @@ void DrawTexturedRectangle(game_render_commands *RenderCommands,
     y_component YComponent = InvertYAxis(RenderCommands->ViewportHeight, 
                                          vMin.Y, vMax.Y);
 
-    GLfloat QuadVertices[] = { vMax.X, YComponent.Max, 
-                               vMin.X, YComponent.Max, 
-                               vMin.X, YComponent.Min, 
-                               vMin.X, YComponent.Min, 
-                               vMax.X, YComponent.Min, 
-                               vMax.X, YComponent.Max };
+    vector_2d_float QuadVertices[] = { 
+        { vMax.X, YComponent.Max }, 
+        { vMin.X, YComponent.Max }, 
+        { vMin.X, YComponent.Min }, 
+        { vMin.X, YComponent.Min }, 
+        { vMax.X, YComponent.Min }, 
+        { vMax.X, YComponent.Max } 
+    };
 
     u32 TextureAtlasUnitWidth = 0;
     u32 TextureAtlasUnitHeight = 0;
@@ -50,15 +52,16 @@ void DrawTexturedRectangle(game_render_commands *RenderCommands,
     r32 TextureYMin = YPosition*YOffsetIncrement;
     r32 TextureYMax = TextureYMin+YOffsetIncrement;
 
-    GLfloat QuadTextureCoordinates[] = { TextureXMax, TextureYMin,
-                                         TextureXMin, TextureYMin,
-                                         TextureXMin, TextureYMax,
-                                         TextureXMin, TextureYMax,
-                                         TextureXMax, TextureYMax,
-                                         TextureXMax, TextureYMin };
+    vector_2d_float QuadTextureCoordinates[] = { 
+        { TextureXMax, TextureYMin },
+        { TextureXMin, TextureYMin },
+        { TextureXMin, TextureYMax },
+        { TextureXMin, TextureYMax },
+        { TextureXMax, TextureYMax },
+        { TextureXMax, TextureYMin }
+    };
 
-    u32 QuadVertexCount = 12;
-
+    u32 QuadVertexCount = 6;
 
     for (u32 Index = 0;
          Index < QuadVertexCount;

@@ -1,7 +1,12 @@
+struct vector_2d_float
+{
+    GLfloat X, Y;
+};
+
 struct render_layer
 {
-    GLfloat *Vertices;
-    GLfloat *TextureCoordinates;
+    vector_2d_float *Vertices;
+    vector_2d_float *TextureCoordinates;
     u32 VertexCount;
     u32 MaxVertices;
 

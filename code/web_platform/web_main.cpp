@@ -134,8 +134,8 @@ void RenderLoop(void *Arg)
         Vertex < TileLayer->MaxVertices;
         Vertex++)
     {
-        TileLayer->Vertices[Vertex] = 0.0f;
-        TileLayer->TextureCoordinates[Vertex] = 0.0f;
+        TileLayer->Vertices[Vertex] = { 0.0f, 0.0f };
+        TileLayer->TextureCoordinates[Vertex] = { 0.0f, 0.0f };
     }
 
     // TODO: (Ted)  Bring Back the player layer
@@ -164,14 +164,14 @@ void RenderLoop(void *Arg)
     GLint PositionAttribute = glGetAttribLocation(RenderCommands.ShaderProgram, "Position");
     glVertexAttribPointer(PositionAttribute, 2, GL_FLOAT, GL_FALSE, 0, 0);
     glEnableVertexAttribArray(PositionAttribute);
-    glBufferData(GL_ARRAY_BUFFER, (sizeof(GLfloat)*TileLayer->MaxVertices), TileLayer->Vertices, GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, (sizeof(vector_2d_float)*TileLayer->MaxVertices), TileLayer->Vertices, GL_STATIC_DRAW);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 
     glBindBuffer(GL_ARRAY_BUFFER, TileLayer->TextureCoordinateBufferObject);
     GLint TextureCoordinateAttribute = glGetAttribLocation(RenderCommands.ShaderProgram, "InTextureCoordinate");
     glVertexAttribPointer(TextureCoordinateAttribute, 2, GL_FLOAT, GL_FALSE, 0, 0);
     glEnableVertexAttribArray(TextureCoordinateAttribute);
-    glBufferData(GL_ARRAY_BUFFER, (sizeof(GLfloat)*TileLayer->MaxVertices), TileLayer->TextureCoordinates, GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, (sizeof(vector_2d_float)*TileLayer->MaxVertices), TileLayer->TextureCoordinates, GL_STATIC_DRAW);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 
     glDrawArrays(GL_TRIANGLES, 0, TileLayer->VertexCount);
@@ -241,9 +241,9 @@ int main(int argc, const char * argv[])
 
     render_layer *TileLayer = &RenderCommands.TileLayer;
     TileLayer->VertexCount = 0;
-    TileLayer->MaxVertices = 4000;
-    TileLayer->Vertices = (GLfloat *)malloc(sizeof(GLfloat)*TileLayer->MaxVertices);
-    TileLayer->TextureCoordinates = (GLfloat *)malloc(sizeof(GLfloat)*TileLayer->MaxVertices);
+    TileLayer->MaxVertices = 2000;
+    TileLayer->Vertices = (vector_2d_float *)malloc(sizeof(vector_2d_float)*TileLayer->MaxVertices);
+    TileLayer->TextureCoordinates = (vector_2d_float *)malloc(sizeof(vector_2d_float)*TileLayer->MaxVertices);
 
     game_texture_buffer GameTextureBuffer = {};
     LoadTextures(&GameMemory, &GameTextureBuffer, &TextureMap);
