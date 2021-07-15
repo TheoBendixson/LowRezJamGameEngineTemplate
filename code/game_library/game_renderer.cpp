@@ -20,15 +20,6 @@ void DrawTexturedRectangle(game_render_commands *RenderCommands,
     y_component YComponent = InvertYAxis(RenderCommands->ViewportHeight, 
                                          vMin.Y, vMax.Y);
 
-    vector_2d_float QuadVertices[] = { 
-        { vMax.X, YComponent.Max }, 
-        { vMin.X, YComponent.Max }, 
-        { vMin.X, YComponent.Min }, 
-        { vMin.X, YComponent.Min }, 
-        { vMax.X, YComponent.Min }, 
-        { vMax.X, YComponent.Max } 
-    };
-
     u32 TextureAtlasUnitWidth = 0;
     u32 TextureAtlasUnitHeight = 0;
 
@@ -52,6 +43,7 @@ void DrawTexturedRectangle(game_render_commands *RenderCommands,
     r32 TextureYMin = YPosition*YOffsetIncrement;
     r32 TextureYMax = TextureYMin+YOffsetIncrement;
 
+    /*
     vector_2d_float QuadTextureCoordinates[] = { 
         { TextureXMax, TextureYMin },
         { TextureXMin, TextureYMin },
@@ -59,6 +51,15 @@ void DrawTexturedRectangle(game_render_commands *RenderCommands,
         { TextureXMin, TextureYMax },
         { TextureXMax, TextureYMax },
         { TextureXMax, TextureYMin }
+    };*/
+
+    game_2d_vertex QuadVertices[] = { 
+        { { vMax.X, YComponent.Max, 0.0f, 0.0f }, { TextureXMax, TextureYMin } }, 
+        { { vMin.X, YComponent.Max, 0.0f, 0.0f }, { TextureXMin, TextureYMin } }, 
+        { { vMin.X, YComponent.Min, 0.0f, 0.0f }, { TextureXMin, TextureYMax } }, 
+        { { vMin.X, YComponent.Min, 0.0f, 0.0f }, { TextureXMin, TextureYMax } }, 
+        { { vMax.X, YComponent.Min, 0.0f, 0.0f }, { TextureXMax, TextureYMax } }, 
+        { { vMax.X, YComponent.Max, 0.0f, 0.0f }, { TextureXMax, TextureYMin } } 
     };
 
     u32 QuadVertexCount = 6;
@@ -67,7 +68,6 @@ void DrawTexturedRectangle(game_render_commands *RenderCommands,
          Index < QuadVertexCount;
          Index++)
     {
-        TileLayer->TextureCoordinates[TileLayer->VertexCount] = QuadTextureCoordinates[Index];
         TileLayer->Vertices[TileLayer->VertexCount] = QuadVertices[Index];
         TileLayer->VertexCount++;
     }

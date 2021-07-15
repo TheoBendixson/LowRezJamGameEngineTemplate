@@ -134,65 +134,71 @@ void RenderLoop(void *Arg)
         Vertex < TileLayer->MaxVertices;
         Vertex++)
     {
-        TileLayer->Vertices[Vertex] = { 0.0f, 0.0f };
-        TileLayer->TextureCoordinates[Vertex] = { 0.0f, 0.0f };
+        TileLayer->Vertices[Vertex] = { { 0.0f, 0.0f, 0.0f, 0.0f }, { 0.0f, 0.0f } };
     }
-
-    // TODO: (Ted)  Bring Back the player layer
-
-    /*
-    render_layer *PlayerLayer = &RenderCommands.PlayerLayer;
-    PlayerLayer->VertexCount = 0;
-    PlayerLayer->MaxVertices = 100;
-
-    for (u32 Vertex = 0;
-         Vertex < PlayerLayer->MaxVertices;
-         Vertex++)
-    {
-        PlayerLayer->Vertices[Vertex] = 0;
-        PlayerLayer->TextureCoordinates[Vertex] = 0;
-    }*/
 
     GameUpdateAndRender(&GameMemory, &TextureMap, &GameInput, &RenderCommands);
 
-    // TODO: (Ted)  Apparently this is not that efficient. The data is supposed to be bundled together in an array of structs.
     glClearColor(0.667f, 0.667f, 0.667f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
 
     glBindTexture(GL_TEXTURE_2D, TileLayer->AtlasTextureID);
     glBindBuffer(GL_ARRAY_BUFFER, TileLayer->VertexBufferObject);
-    GLint PositionAttribute = glGetAttribLocation(RenderCommands.ShaderProgram, "Position");
-    glVertexAttribPointer(PositionAttribute, 2, GL_FLOAT, GL_FALSE, 0, 0);
-    glEnableVertexAttribArray(PositionAttribute);
-    glBufferData(GL_ARRAY_BUFFER, (sizeof(vector_2d_float)*TileLayer->MaxVertices), TileLayer->Vertices, GL_STATIC_DRAW);
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-    glBindBuffer(GL_ARRAY_BUFFER, TileLayer->TextureCoordinateBufferObject);
-    GLint TextureCoordinateAttribute = glGetAttribLocation(RenderCommands.ShaderProgram, "InTextureCoordinate");
-    glVertexAttribPointer(TextureCoordinateAttribute, 2, GL_FLOAT, GL_FALSE, 0, 0);
-    glEnableVertexAttribArray(TextureCoordinateAttribute);
-    glBufferData(GL_ARRAY_BUFFER, (sizeof(vector_2d_float)*TileLayer->MaxVertices), TileLayer->TextureCoordinates, GL_STATIC_DRAW);
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-    glDrawArrays(GL_TRIANGLES, 0, TileLayer->VertexCount);
+    printf("glBufferData \n");
+    glBufferData(GL_ARRAY_BUFFER, (sizeof(game_2d_vertex)*TileLayer->MaxVertices), TileLayer->Vertices, GL_STATIC_DRAW);
 
     GLenum error = glGetError();
 
     switch (error)
     {
         case GL_NO_ERROR:
+            printf("No GL Error \n");
             break;
-        case GL_INVALID_ENUM:
-            printf("GL Error: Invalid Enum \n");
-        case GL_INVALID_VALUE:
-            printf("GL Error: Invalid Value \n");
         case GL_INVALID_OPERATION:
             printf("GL Error: Invalid Operation \n");
-        case GL_INVALID_FRAMEBUFFER_OPERATION:
-            printf("GL Error: Invalid Frame Buffer Operation \n");
+            break;
+        case GL_INVALID_ENUM:
+            printf("GL Error: Invalid Enum \n (glBufferData)");
+            break;
         case GL_OUT_OF_MEMORY:
-            printf("GL Error: Out of Memory \n");
+            printf("GL Error: Out of Memory \n (glBufferData)");
+            break;
     }
+
+    GLint PositionAttribLocation = glGetAttribLocation(RenderCommands.ShaderProgram, "Position");
+    glVertexAttribPointer(PositionAttribLocation, 4, GL_FLOAT, GL_FALSE, sizeof(GLfloat)*6, (void *)0);
+    glEnableVertexAttribArray(PositionAttribLocation);
+
+    GLint TextureCoordinateAttribute = glGetAttribLocation(RenderCommands.ShaderProgram, "InTextureCoordinate");
+    glVertexAttribPointer(TextureCoordinateAttribute, 2, GL_FLOAT, GL_FALSE, sizeof(GLfloat)*6, (void *)(4 * sizeof(GLfloat)));
+    glEnableVertexAttribArray(TextureCoordinateAttribute);
+
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+    printf("glDrawElements \n");
+    glDrawArrays(GL_TRIANGLES, 0, TileLayer->VertexCount);
+
+    error = glGetError();
+
+    switch (error)
+    {
+        case GL_NO_ERROR:
+            break;
+        case GL_INVALID_ENUM:
+            printf("GL Error: Invalid Enum (glDrawElements) \n");
+            break;
+        case GL_INVALID_VALUE:
+            printf("GL Error: Invalid Value (glDrawElements) \n");
+            break;
+        case GL_INVALID_FRAMEBUFFER_OPERATION:
+            printf("GL Error: Invalid Frame Buffer Operation (glDrawElements) \n");
+            break;
+        case GL_OUT_OF_MEMORY:
+            printf("GL Error: Out of Memory (glDrawElements) \n");
+            break;
+    }
+
 
     // TODO: (Ted)  Bring back the player layer once we have established the ability to load
     //              and draw the tiles in a single pass.
@@ -241,9 +247,8 @@ int main(int argc, const char * argv[])
 
     render_layer *TileLayer = &RenderCommands.TileLayer;
     TileLayer->VertexCount = 0;
-    TileLayer->MaxVertices = 2000;
-    TileLayer->Vertices = (vector_2d_float *)malloc(sizeof(vector_2d_float)*TileLayer->MaxVertices);
-    TileLayer->TextureCoordinates = (vector_2d_float *)malloc(sizeof(vector_2d_float)*TileLayer->MaxVertices);
+    TileLayer->MaxVertices = 1000;
+    TileLayer->Vertices = (game_2d_vertex *)malloc(sizeof(game_2d_vertex)*TileLayer->MaxVertices);
 
     game_texture_buffer GameTextureBuffer = {};
     LoadTextures(&GameMemory, &GameTextureBuffer, &TextureMap);
@@ -370,6 +375,7 @@ int main(int argc, const char * argv[])
     glGenBuffers(1, &VertexBufferObject);
     RenderCommands.TileLayer.VertexBufferObject = VertexBufferObject;
 
+    /*
     GLuint TextureCoordinateBufferObject;
     glGenBuffers(1, &TextureCoordinateBufferObject);
     RenderCommands.TileLayer.TextureCoordinateBufferObject = TextureCoordinateBufferObject;
@@ -380,7 +386,7 @@ int main(int argc, const char * argv[])
 
     GLuint PlayerTextureCoordinateBufferObject;
     glGenBuffers(1, &PlayerTextureCoordinateBufferObject);
-    RenderCommands.PlayerLayer.TextureCoordinateBufferObject = PlayerTextureCoordinateBufferObject;
+    RenderCommands.PlayerLayer.TextureCoordinateBufferObject = PlayerTextureCoordinateBufferObject;*/
 
     render_loop_arguments Args = {};
     Args.Window = Window;
