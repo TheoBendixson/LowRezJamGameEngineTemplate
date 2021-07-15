@@ -3,14 +3,9 @@ struct vector_2d_float
     GLfloat X, Y;
 };
 
-struct vector4_float
-{
-    GLfloat X, Y, Z, W;
-};
-
 struct game_2d_vertex
 {
-    vector4_float Vertex;
+    vector_2d_float Vertex;
     vector_2d_float TextureCoordinate;
 };
 

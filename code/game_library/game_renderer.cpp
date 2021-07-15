@@ -43,23 +43,13 @@ void DrawTexturedRectangle(game_render_commands *RenderCommands,
     r32 TextureYMin = YPosition*YOffsetIncrement;
     r32 TextureYMax = TextureYMin+YOffsetIncrement;
 
-    /*
-    vector_2d_float QuadTextureCoordinates[] = { 
-        { TextureXMax, TextureYMin },
-        { TextureXMin, TextureYMin },
-        { TextureXMin, TextureYMax },
-        { TextureXMin, TextureYMax },
-        { TextureXMax, TextureYMax },
-        { TextureXMax, TextureYMin }
-    };*/
-
     game_2d_vertex QuadVertices[] = { 
-        { { vMax.X, YComponent.Max, 0.0f, 0.0f }, { TextureXMax, TextureYMin } }, 
-        { { vMin.X, YComponent.Max, 0.0f, 0.0f }, { TextureXMin, TextureYMin } }, 
-        { { vMin.X, YComponent.Min, 0.0f, 0.0f }, { TextureXMin, TextureYMax } }, 
-        { { vMin.X, YComponent.Min, 0.0f, 0.0f }, { TextureXMin, TextureYMax } }, 
-        { { vMax.X, YComponent.Min, 0.0f, 0.0f }, { TextureXMax, TextureYMax } }, 
-        { { vMax.X, YComponent.Max, 0.0f, 0.0f }, { TextureXMax, TextureYMin } } 
+        { { vMax.X, YComponent.Max }, { TextureXMax, TextureYMin } }, 
+        { { vMin.X, YComponent.Max }, { TextureXMin, TextureYMin } }, 
+        { { vMin.X, YComponent.Min }, { TextureXMin, TextureYMax } }, 
+        { { vMin.X, YComponent.Min }, { TextureXMin, TextureYMax } }, 
+        { { vMax.X, YComponent.Min }, { TextureXMax, TextureYMax } }, 
+        { { vMax.X, YComponent.Max }, { TextureXMax, TextureYMin } } 
     };
 
     u32 QuadVertexCount = 6;

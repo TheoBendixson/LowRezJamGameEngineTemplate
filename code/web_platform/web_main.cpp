@@ -21,9 +21,13 @@
 
 #define MAX_TEXTURES    200
 
+#define SHOWLOG 0
+
 PLATFORM_LOG_MESSAGE(PlatformLogMessage)
 {
+#if SHOWLOG
     printf("Log: %s", Message); 
+#endif
 }
 
 #include "../game_library/game_main.cpp"
@@ -134,7 +138,7 @@ void RenderLoop(void *Arg)
         Vertex < TileLayer->MaxVertices;
         Vertex++)
     {
-        TileLayer->Vertices[Vertex] = { { 0.0f, 0.0f, 0.0f, 0.0f }, { 0.0f, 0.0f } };
+        TileLayer->Vertices[Vertex] = { { 0.0f, 0.0f }, { 0.0f, 0.0f } };
     }
 
     GameUpdateAndRender(&GameMemory, &TextureMap, &GameInput, &RenderCommands);
@@ -145,9 +149,13 @@ void RenderLoop(void *Arg)
     glBindTexture(GL_TEXTURE_2D, TileLayer->AtlasTextureID);
     glBindBuffer(GL_ARRAY_BUFFER, TileLayer->VertexBufferObject);
 
+#if SHOWLOG
     printf("glBufferData \n");
+#endif
     glBufferData(GL_ARRAY_BUFFER, (sizeof(game_2d_vertex)*TileLayer->MaxVertices), TileLayer->Vertices, GL_STATIC_DRAW);
 
+
+#if SHOWLOG
     GLenum error = glGetError();
 
     switch (error)
@@ -165,20 +173,25 @@ void RenderLoop(void *Arg)
             printf("GL Error: Out of Memory \n (glBufferData)");
             break;
     }
+#endif
 
     GLint PositionAttribLocation = glGetAttribLocation(RenderCommands.ShaderProgram, "Position");
-    glVertexAttribPointer(PositionAttribLocation, 4, GL_FLOAT, GL_FALSE, sizeof(GLfloat)*6, (void *)0);
+    glVertexAttribPointer(PositionAttribLocation, 2, GL_FLOAT, GL_FALSE, sizeof(GLfloat)*4, (void *)0);
     glEnableVertexAttribArray(PositionAttribLocation);
 
     GLint TextureCoordinateAttribute = glGetAttribLocation(RenderCommands.ShaderProgram, "InTextureCoordinate");
-    glVertexAttribPointer(TextureCoordinateAttribute, 2, GL_FLOAT, GL_FALSE, sizeof(GLfloat)*6, (void *)(4 * sizeof(GLfloat)));
+    glVertexAttribPointer(TextureCoordinateAttribute, 2, GL_FLOAT, GL_FALSE, sizeof(GLfloat)*4, (void *)(2 * sizeof(GLfloat)));
     glEnableVertexAttribArray(TextureCoordinateAttribute);
 
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 
+#if SHOWLOG
     printf("glDrawElements \n");
+#endif
+
     glDrawArrays(GL_TRIANGLES, 0, TileLayer->VertexCount);
 
+#if SHOWLOG
     error = glGetError();
 
     switch (error)
@@ -198,34 +211,17 @@ void RenderLoop(void *Arg)
             printf("GL Error: Out of Memory (glDrawElements) \n");
             break;
     }
-
-
-    // TODO: (Ted)  Bring back the player layer once we have established the ability to load
-    //              and draw the tiles in a single pass.
-    
-    /*
-    glBindTexture(GL_TEXTURE_2D, RenderCommands.PlayerAtlasTextureID);
-    glBindBuffer(GL_ARRAY_BUFFER, RenderCommands.PlayerVertexBufferObject);
-    GLint PlayerPositionAttribute = glGetAttribLocation(RenderCommands.ShaderProgram, "Position");
-    glVertexAttribPointer(PlayerPositionAttribute, 2, GL_FLOAT, GL_FALSE, 0, 0);
-    glEnableVertexAttribArray(PlayerPositionAttribute);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(RenderCommands.PlayerTextureVertices), RenderCommands.PlayerTextureVertices, GL_STATIC_DRAW);
-
-    glBindBuffer(GL_ARRAY_BUFFER, RenderCommands.PlayerTextureCoordinateBufferObject);
-    GLint PlayerTextureCoordinateAttribute = glGetAttribLocation(RenderCommands.ShaderProgram, "InTextureCoordinate");
-    glVertexAttribPointer(PlayerTextureCoordinateAttribute, 2, GL_FLOAT, GL_FALSE, 0, 0);
-    glEnableVertexAttribArray(PlayerTextureCoordinateAttribute);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(RenderCommands.PlayerTextureCoordinates), 
-                 RenderCommands.PlayerTextureCoordinates, GL_STATIC_DRAW);
-
-    glDrawArrays(GL_TRIANGLES, 0, RenderCommands.PlayerVertexCount);*/
+#endif
 
     SDL_GL_SwapWindow(Window);
 }
 
 int main(int argc, const char * argv[]) 
 {
+
+#if SHOWLOG
     printf("Starting Game\n");
+#endif
 
     RenderCommands.ViewportWidth = 1024;
     RenderCommands.ViewportHeight = 1024;
@@ -294,44 +290,6 @@ int main(int argc, const char * argv[])
                         GL_RGBA, GL_UNSIGNED_BYTE, GameTextureBuffer.Textures[TextureIndex].Data);
     }
 
-    // TODO: (Ted)  Bring back the player layer later.
-
-    /*
-    u32 PlayerAtlasTextureID;
-    glGenTextures(1, &PlayerAtlasTextureID);
-    glBindTexture(GL_TEXTURE_2D, PlayerAtlasTextureID);
-    RenderCommands.PlayerAtlasTextureID = PlayerAtlasTextureID;
-
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
-    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-    glPixelStorei(GL_PACK_ALIGNMENT, 1);
-
-    RenderCommands.PlayerTextureAtlasUnitWidth = 2;
-    RenderCommands.PlayerTextureAtlasUnitHeight = 1;
-
-    u32 PlayerAtlasUnitWidthInPixels = 20;
-    u32 PlayerAtlasUnitHeightInPixels = 28;
-
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, PlayerAtlasUnitWidthInPixels*RenderCommands.PlayerTextureAtlasUnitWidth, 
-                 PlayerAtlasUnitHeightInPixels, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
-
-    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, PlayerAtlasUnitWidthInPixels, PlayerAtlasUnitHeightInPixels, 
-                    GL_RGBA, GL_UNSIGNED_BYTE, GameTextureBuffer.Textures[0].Data);
-
-    glTexSubImage2D(GL_TEXTURE_2D, 0, PlayerAtlasUnitWidthInPixels, 0, PlayerAtlasUnitWidthInPixels, 
-                    PlayerAtlasUnitHeightInPixels, GL_RGBA, GL_UNSIGNED_BYTE, GameTextureBuffer.Textures[1].Data);
-
-    for (u32 TextureIndex = 0; 
-         TextureIndex < GameTextureBuffer.MaxTextures; 
-         TextureIndex++)
-    {
-        free(GameTextureBuffer.Textures[TextureIndex].Data);
-    }*/
-
     // TODO: (Ted)  Clear the transient storage arena
 
     GLuint VertexShader = glCreateShader(GL_VERTEX_SHADER);
@@ -351,6 +309,7 @@ int main(int argc, const char * argv[])
 
     RenderCommands.ShaderProgram = ShaderProgram;
 
+#if SHOWLOG
     GLchar *Log = (GLchar *)malloc(400*sizeof(GLchar));
     GLsizei LogLength;
 
@@ -366,27 +325,14 @@ int main(int argc, const char * argv[])
     }
 
     free(Log);
+#endif
 
     RenderCommands.TileLayer.VertexCount = 0;
-
     GameInput.dtForFrame = 1.0f/60.0f;
 
     GLuint VertexBufferObject;
     glGenBuffers(1, &VertexBufferObject);
     RenderCommands.TileLayer.VertexBufferObject = VertexBufferObject;
-
-    /*
-    GLuint TextureCoordinateBufferObject;
-    glGenBuffers(1, &TextureCoordinateBufferObject);
-    RenderCommands.TileLayer.TextureCoordinateBufferObject = TextureCoordinateBufferObject;
-    
-    GLuint PlayerVertexBufferObject;
-    glGenBuffers(1, &PlayerVertexBufferObject);
-    RenderCommands.PlayerLayer.VertexBufferObject = PlayerVertexBufferObject;
-
-    GLuint PlayerTextureCoordinateBufferObject;
-    glGenBuffers(1, &PlayerTextureCoordinateBufferObject);
-    RenderCommands.PlayerLayer.TextureCoordinateBufferObject = PlayerTextureCoordinateBufferObject;*/
 
     render_loop_arguments Args = {};
     Args.Window = Window;
