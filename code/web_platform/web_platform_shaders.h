@@ -2,7 +2,7 @@
 // TODO: (Ted)  Make it we can pass the viewport size into the prjection matrix.
 
 const GLchar *VertexSource =
-    "attribute vec4 Position;        			                    \n"
+    "attribute vec2 Position;        			                    \n"
     "attribute vec2 InTextureCoordinate;                            \n"
     "varying vec2 TextureCoordinate;                                \n"
     "void main()                                				    \n"
@@ -11,7 +11,7 @@ const GLchar *VertexSource =
 	"								 0.0, 2.0/1024.0, 0.0, -1.0,    \n"
 	"								 0.0, 0.0, -1.0, 0.0,		    \n"
 	"								 0.0, 0.0, 0.0, 1.0);		    \n"
-    "   gl_Position = vec4(Position.xyz, 1.0);  				    \n"
+    "   gl_Position = vec4(Position.xy, 0.0, 1.0);				    \n"
 	"	gl_Position *= ProjectionMatrix;						    \n"	
     "   TextureCoordinate = InTextureCoordinate;                    \n"
     "}                                          				    \n";
