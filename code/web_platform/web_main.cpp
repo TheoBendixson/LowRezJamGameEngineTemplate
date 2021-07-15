@@ -154,7 +154,6 @@ void RenderLoop(void *Arg)
 #endif
     glBufferData(GL_ARRAY_BUFFER, (sizeof(game_2d_vertex)*TileLayer->MaxVertices), TileLayer->Vertices, GL_STATIC_DRAW);
 
-
 #if SHOWLOG
     GLenum error = glGetError();
 
