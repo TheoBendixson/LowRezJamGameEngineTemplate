@@ -289,7 +289,14 @@ int main(int argc, const char * argv[])
                         GL_RGBA, GL_UNSIGNED_BYTE, GameTextureBuffer.Textures[TextureIndex].Data);
     }
 
-    // TODO: (Ted)  Clear the transient storage arena
+    u8* Byte = (u8 *)GameMemory.TransientStorage;
+
+    for (u32 Index = 0; 
+         Index < GameMemory.TransientStorageSize; 
+         Index++)
+    {
+        *Byte++ = 0;
+    }
 
     GLuint VertexShader = glCreateShader(GL_VERTEX_SHADER);
     glShaderSource(VertexShader, 1, &VertexSource, nullptr);
