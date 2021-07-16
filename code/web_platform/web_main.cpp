@@ -21,7 +21,7 @@
 
 #define MAX_TEXTURES    200
 
-#define SHOW_LOG                1
+#define SHOW_LOG                0
 #define SHOW_RENDER_LOOP_LOG    0
 
 PLATFORM_LOG_MESSAGE(PlatformLogMessage)
