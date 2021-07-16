@@ -33,7 +33,7 @@ LoadTileTextureFromSpritesheet(memory_arena *ScratchArena, spritesheet *SpriteSh
         u32 *DestRow = PixelDest + (DestRowCount*Texture.Width);
 
         for (s32 Column = SpriteSheetSection.XOffset; 
-             Column <= (SpriteSheetSection.SamplingWidth); 
+             Column < SpriteSheetSection.SamplingWidth; 
              Column++)
         {
             *DestRow++ = PixelSource[StartingXOffsetInPixels + (Row*RowSizeInPixels) + Column];

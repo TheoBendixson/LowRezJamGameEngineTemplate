@@ -21,12 +21,20 @@
 
 #define MAX_TEXTURES    200
 
-#define SHOWLOG 0
+#define SHOW_LOG                1
+#define SHOW_RENDER_LOOP_LOG    0
 
 PLATFORM_LOG_MESSAGE(PlatformLogMessage)
 {
-#if SHOWLOG
+#if SHOW_LOG
     printf("Log: %s", Message); 
+#endif
+}
+
+PLATFORM_LOG_MESSAGE_U32(PlatformLogMessageU32)
+{
+#if SHOW_LOG
+    printf("Log: %s, Param: %u \n", Message, Param); 
 #endif
 }
 
@@ -39,7 +47,7 @@ struct render_loop_arguments
 
 static game_memory GameMemory = {};
 static game_render_commands RenderCommands = {};
-static game_texture_map TextureMap = {};
+static game_texture_map *TextureMap = (game_texture_map *)malloc(sizeof(game_texture_map));;
 static game_input GameInput = {};
 
 void RenderLoop(void *Arg)
@@ -141,7 +149,7 @@ void RenderLoop(void *Arg)
         TileLayer->Vertices[Vertex] = { { 0.0f, 0.0f }, { 0.0f, 0.0f } };
     }
 
-    GameUpdateAndRender(&GameMemory, &TextureMap, &GameInput, &RenderCommands);
+    GameUpdateAndRender(&GameMemory, TextureMap, &GameInput, &RenderCommands);
 
     glClearColor(0.667f, 0.667f, 0.667f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
@@ -149,12 +157,12 @@ void RenderLoop(void *Arg)
     glBindTexture(GL_TEXTURE_2D, TileLayer->AtlasTextureID);
     glBindBuffer(GL_ARRAY_BUFFER, TileLayer->VertexBufferObject);
 
-#if SHOWLOG
+#if SHOW_RENDER_LOG
     printf("glBufferData \n");
 #endif
     glBufferData(GL_ARRAY_BUFFER, (sizeof(game_2d_vertex)*TileLayer->MaxVertices), TileLayer->Vertices, GL_STATIC_DRAW);
 
-#if SHOWLOG
+#if SHOW_RENDER_LOG
     GLenum error = glGetError();
 
     switch (error)
@@ -184,13 +192,13 @@ void RenderLoop(void *Arg)
 
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-#if SHOWLOG
+#if SHOW_RENDER_LOG
     printf("glDrawElements \n");
 #endif
 
     glDrawArrays(GL_TRIANGLES, 0, TileLayer->VertexCount);
 
-#if SHOWLOG
+#if SHOW_RENDER_LOG
     error = glGetError();
 
     switch (error)
@@ -218,7 +226,7 @@ void RenderLoop(void *Arg)
 int main(int argc, const char * argv[]) 
 {
 
-#if SHOWLOG
+#if SHOW_RENDER_LOG
     printf("Starting Game\n");
 #endif
 
@@ -238,15 +246,13 @@ int main(int argc, const char * argv[])
     GameMemory.PermanentStorage = malloc(GameMemory.PermanentStorageSize);
     GameMemory.TransientStorage = malloc(GameMemory.TransientStorageSize);
 
-    u64 TransientStoragePartitionSize = Megabytes(32);
-
     render_layer *TileLayer = &RenderCommands.TileLayer;
     TileLayer->VertexCount = 0;
     TileLayer->MaxVertices = 1000;
     TileLayer->Vertices = (game_2d_vertex *)malloc(sizeof(game_2d_vertex)*TileLayer->MaxVertices);
 
     game_texture_buffer GameTextureBuffer = {};
-    LoadTextures(&GameMemory, &GameTextureBuffer, &TextureMap);
+    LoadTextures(&GameMemory, &GameTextureBuffer, TextureMap);
 
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
@@ -266,14 +272,23 @@ int main(int argc, const char * argv[])
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
     glPixelStorei(GL_PACK_ALIGNMENT, 1);
 
-    u32 AtlasWidthHeightInUnits = 4;
+    u32 AtlasWidthHeightInUnits = 8;
     RenderCommands.TileLayer.TextureAtlasUnitWidth = AtlasWidthHeightInUnits;
     RenderCommands.TileLayer.TextureAtlasUnitHeight = AtlasWidthHeightInUnits;
 
     u32 AtlastUnitWidthHeightInPixels = 8;
     u32 AtlasTextureWidthHeightInPixels = AtlasWidthHeightInUnits*AtlastUnitWidthHeightInPixels;
+
+#if SHOW_LOG
+    printf("Setup 2D Textures \n");
+#endif
+
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, AtlasTextureWidthHeightInPixels, AtlasTextureWidthHeightInPixels, 
                  0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
+
+#if SHOW_LOG
+    printf("Fill in 2D Texture Atlas \n");
+#endif
 
     for (u32 TextureIndex = 0;
          TextureIndex < GameTextureBuffer.TexturesLoaded;
@@ -289,6 +304,10 @@ int main(int argc, const char * argv[])
                         GL_RGBA, GL_UNSIGNED_BYTE, GameTextureBuffer.Textures[TextureIndex].Data);
     }
 
+#if SHOW_LOG
+    printf("Clear Scratch Memory Arena \n");
+#endif
+
     u8* Byte = (u8 *)GameMemory.TransientStorage;
 
     for (u32 Index = 0; 
@@ -298,13 +317,25 @@ int main(int argc, const char * argv[])
         *Byte++ = 0;
     }
 
+#if SHOW_LOG
+    printf("Setup Vertex Shader \n");
+#endif
+
     GLuint VertexShader = glCreateShader(GL_VERTEX_SHADER);
     glShaderSource(VertexShader, 1, &VertexSource, nullptr);
     glCompileShader(VertexShader);
 
+#if SHOW_LOG
+    printf("Setup Fragment Shader \n");
+#endif 
+
     GLuint FragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
     glShaderSource(FragmentShader, 1, &FragmentSource, nullptr);
     glCompileShader(FragmentShader);
+
+#if SHOW_LOG
+    printf("Setup Shader Program \n");
+#endif
 
     GLuint ShaderProgram = glCreateProgram();
     glAttachShader(ShaderProgram, VertexShader);
@@ -315,7 +346,7 @@ int main(int argc, const char * argv[])
 
     RenderCommands.ShaderProgram = ShaderProgram;
 
-#if SHOWLOG
+#if SHOW_LOG
     GLchar *Log = (GLchar *)malloc(400*sizeof(GLchar));
     GLsizei LogLength;
 
@@ -335,6 +366,10 @@ int main(int argc, const char * argv[])
 
     RenderCommands.TileLayer.VertexCount = 0;
     GameInput.dtForFrame = 1.0f/60.0f;
+
+#if SHOW_LOG
+    printf("Setup Vertex Buffer Object \n");
+#endif
 
     GLuint VertexBufferObject;
     glGenBuffers(1, &VertexBufferObject);
