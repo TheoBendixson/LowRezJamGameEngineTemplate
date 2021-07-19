@@ -75,7 +75,7 @@ Well shucks, I really appreciate the sentiment. You can sponsor me on github. Yo
 ## Where to find me
 🎮 [ITCH](https://tedbendixson.itch.io/cove-kid)
 🐦 [TWITTER](https://twitter.com/TBendixson)
-📱 [ITUNES](https://apps.apple.com/us/developer/send-it-apps-llc/id1139954390)  
+📱 [ITUNES](https://apps.apple.com/us/developer/send-it-apps-llc/id1139954390)
 📄 [MEDIUM](https://theobendixson.medium.com)
 🦉 [WYZANT](https://www.wyzant.com/tutor/profile)
 💵 [FIVERR](https://www.fiverr.com/tedbendixson)
