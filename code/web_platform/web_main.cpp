@@ -282,7 +282,7 @@ int main(int argc, const char * argv[])
     printf("Start of SDL Audio Setup \n");
 #endif
 
-    s32 BytesToWrite = 1024; 
+    s32 BytesToWrite = 4096; 
     s32 SamplesPerSecond = 48000;
 
     SDL_AudioSpec AudioSettings = {0};
