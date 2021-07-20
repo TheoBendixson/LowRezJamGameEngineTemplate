@@ -40,26 +40,35 @@ PLATFORM_LOG_MESSAGE_U32(PlatformLogMessageU32)
 
 #include "../game_library/game_main.cpp"
 
+struct sdl_audio_ring_buffer
+{
+    s32 Size;
+    s32 WriteCursor;
+    s32 PlayCursor;
+    void *Data;
+};
+
 struct render_loop_arguments
 {
     SDL_Window *Window;
-    void *SoundBuffer;
-    s32 BytesToWrite; 
+    sdl_audio_ring_buffer *AudioRingBuffer;
     s32 SamplesPerSecond;
+    s32 BytesPerSample;
 };
 
-static game_memory GameMemory = {};
-static game_render_commands RenderCommands = {};
-static game_texture_map *TextureMap = (game_texture_map *)malloc(sizeof(game_texture_map));
-static game_input GameInput = {};
-static u32 RunningSampleIndex = 0;
+internal game_memory GameMemory = {};
+internal game_render_commands RenderCommands = {};
+internal game_texture_map *TextureMap = (game_texture_map *)malloc(sizeof(game_texture_map));
+internal game_input GameInput = {};
+internal u32 RunningSampleIndex = 0;
+internal s32 SDLAudioSampleCount = 4096; 
 
 void RenderLoop(void *Arg)
 {
     render_loop_arguments *Args = (render_loop_arguments *)Arg;
     SDL_Window *Window = Args->Window;
-    void *SoundBuffer = Args->SoundBuffer;
-    s32 BytesToWrite = Args->BytesToWrite;
+    sdl_audio_ring_buffer *AudioRingBuffer = Args->AudioRingBuffer;
+    s32 BytesPerSample = Args->BytesPerSample;
     s32 SamplesPerSecond = Args->SamplesPerSecond;
 
     game_controller_input *Controller = &GameInput.Controller;
@@ -158,25 +167,65 @@ void RenderLoop(void *Arg)
 
     GameUpdateAndRender(&GameMemory, TextureMap, &GameInput, &RenderCommands);
 
-    s32 SampleCount = BytesToWrite/4;
-
+    s32 SecondaryBufferSize = AudioRingBuffer->Size;
     s32 ToneHz = 256;
-    s16 ToneVolume = 3000;
     s32 SquareWavePeriod = SamplesPerSecond / ToneHz;
     s32 HalfSquareWavePeriod = SquareWavePeriod / 2;
-    
-    s16 *SampleOut = (s16*)SoundBuffer;
+    s16 ToneVolume = 3000;
 
-    for (s32 SampleIndex = 0;
-         SampleIndex < SampleCount;
-         SampleIndex++)
+    SDL_LockAudio();
+
+    s32 ByteToLock = RunningSampleIndex*BytesPerSample % SecondaryBufferSize;
+    s32 BytesToWrite;
+
+    if(ByteToLock == AudioRingBuffer->PlayCursor)
+    {
+        BytesToWrite = SecondaryBufferSize;
+    } else if(ByteToLock > AudioRingBuffer->PlayCursor)
+    {
+        BytesToWrite = (SecondaryBufferSize - ByteToLock);
+        BytesToWrite += AudioRingBuffer->PlayCursor;
+    } else
+    {
+        BytesToWrite = AudioRingBuffer->PlayCursor - ByteToLock;
+    }
+
+    void *Region1 = (u8*)AudioRingBuffer->Data + ByteToLock;
+    s32 Region1Size = BytesToWrite;
+
+    if (Region1Size + ByteToLock > SecondaryBufferSize)
+    {
+        Region1Size = SecondaryBufferSize - ByteToLock;
+    }
+
+    void *Region2 = AudioRingBuffer->Data;
+    s32 Region2Size = BytesToWrite - Region1Size;
+
+    SDL_UnlockAudio();
+
+    s32 Region1SampleCount = Region1Size/BytesPerSample;
+    s16 *SampleOut = (s16 *)Region1;
+
+    for(s32 SampleIndex = 0;
+        SampleIndex < Region1SampleCount;
+        ++SampleIndex)
     {
         s16 SampleValue = ((RunningSampleIndex++ / HalfSquareWavePeriod) % 2) ? ToneVolume : -ToneVolume;
         *SampleOut++ = SampleValue;
         *SampleOut++ = SampleValue;
     }
 
-    SDL_QueueAudio(1, SoundBuffer, BytesToWrite);
+    s32 Region2SampleCount = Region2Size/BytesPerSample;
+    SampleOut = (s16 *)Region2;
+
+    for(s32 SampleIndex = 0;
+        SampleIndex < Region2SampleCount;
+        ++SampleIndex)
+    {
+        s16 SampleValue = ((RunningSampleIndex++ / HalfSquareWavePeriod) % 2) ? ToneVolume : -ToneVolume;
+        *SampleOut++ = SampleValue;
+        *SampleOut++ = SampleValue;
+    }
 
     glClearColor(0.667f, 0.667f, 0.667f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
@@ -250,13 +299,26 @@ void RenderLoop(void *Arg)
     SDL_GL_SwapWindow(Window);
 }
 
-/*
+
 internal void
 SDLAudioCallback(void *UserData, u8 *AudioData, s32 Length)
 {
-    // Clear audio buffer to silence.
-    memset(AudioData, 0, Length);
-}*/
+    sdl_audio_ring_buffer *RingBuffer = (sdl_audio_ring_buffer *)UserData;
+
+    s32 Region1Size = Length;
+    s32 Region2Size = 0;
+
+    if (RingBuffer->PlayCursor + Length > RingBuffer->Size)
+    {
+        Region1Size = RingBuffer->Size - RingBuffer->PlayCursor;
+        Region2Size = Length - Region1Size;
+    }
+
+    memcpy(AudioData, (u8*)(RingBuffer->Data) + RingBuffer->PlayCursor, Region1Size);
+    memcpy(&AudioData[Region1Size], RingBuffer->Data, Region2Size);
+    RingBuffer->PlayCursor = (RingBuffer->PlayCursor + Length) % RingBuffer->Size;
+    RingBuffer->WriteCursor = (RingBuffer->PlayCursor + (SDLAudioSampleCount*2)) % RingBuffer->Size;
+}
 
 int main(int argc, const char * argv[]) 
 {
@@ -282,14 +344,23 @@ int main(int argc, const char * argv[])
     printf("Start of SDL Audio Setup \n");
 #endif
 
-    s32 BytesToWrite = 4096; 
     s32 SamplesPerSecond = 48000;
+
+    s32 BytesPerSample = sizeof(s16)*2;  
+    s32 SecondaryBufferSize = SamplesPerSecond*BytesPerSample;
+
+    sdl_audio_ring_buffer AudioRingBuffer = {};
+    AudioRingBuffer.Size = SecondaryBufferSize;
+    AudioRingBuffer.Data = malloc(SecondaryBufferSize);
+    AudioRingBuffer.PlayCursor = AudioRingBuffer.WriteCursor = 0;
 
     SDL_AudioSpec AudioSettings = {0};
     AudioSettings.freq = SamplesPerSecond;
     AudioSettings.format = AUDIO_S16LSB;
     AudioSettings.channels = 2;
-    AudioSettings.samples = BytesToWrite;
+    AudioSettings.samples = SDLAudioSampleCount;
+    AudioSettings.callback = &SDLAudioCallback;
+    AudioSettings.userdata = &AudioRingBuffer;
 
 #if SHOW_LOG
     printf("Before Call to SDL_OpenAudio \n");
@@ -305,7 +376,6 @@ int main(int argc, const char * argv[])
     printf("Start of SDL Audio Buffer Setup \n");
 #endif
 
-    void *SoundBuffer = malloc(BytesToWrite);
 
     b32 SoundIsPlaying = false;
 
@@ -456,9 +526,9 @@ int main(int argc, const char * argv[])
 
     render_loop_arguments Args = {};
     Args.Window = Window;
-    Args.SoundBuffer = SoundBuffer;
-    Args.BytesToWrite = BytesToWrite;
+    Args.AudioRingBuffer = &AudioRingBuffer;
     Args.SamplesPerSecond = SamplesPerSecond;
+    Args.BytesPerSample = BytesPerSample;
 
     emscripten_set_main_loop_arg(RenderLoop, (void *)&Args, 60, 1);
 
