@@ -21,7 +21,7 @@
 
 #define MAX_TEXTURES    200
 
-#define SHOW_LOG                0
+#define SHOW_LOG                1
 #define SHOW_RENDER_LOOP_LOG    0
 
 PLATFORM_LOG_MESSAGE(PlatformLogMessage)
@@ -43,17 +43,24 @@ PLATFORM_LOG_MESSAGE_U32(PlatformLogMessageU32)
 struct render_loop_arguments
 {
     SDL_Window *Window;
+    void *SoundBuffer;
+    s32 BytesToWrite; 
+    s32 SamplesPerSecond;
 };
 
 static game_memory GameMemory = {};
 static game_render_commands RenderCommands = {};
-static game_texture_map *TextureMap = (game_texture_map *)malloc(sizeof(game_texture_map));;
+static game_texture_map *TextureMap = (game_texture_map *)malloc(sizeof(game_texture_map));
 static game_input GameInput = {};
+static u32 RunningSampleIndex = 0;
 
 void RenderLoop(void *Arg)
 {
     render_loop_arguments *Args = (render_loop_arguments *)Arg;
     SDL_Window *Window = Args->Window;
+    void *SoundBuffer = Args->SoundBuffer;
+    s32 BytesToWrite = Args->BytesToWrite;
+    s32 SamplesPerSecond = Args->SamplesPerSecond;
 
     game_controller_input *Controller = &GameInput.Controller;
 
@@ -151,6 +158,26 @@ void RenderLoop(void *Arg)
 
     GameUpdateAndRender(&GameMemory, TextureMap, &GameInput, &RenderCommands);
 
+    s32 SampleCount = BytesToWrite/4;
+
+    s32 ToneHz = 256;
+    s16 ToneVolume = 3000;
+    s32 SquareWavePeriod = SamplesPerSecond / ToneHz;
+    s32 HalfSquareWavePeriod = SquareWavePeriod / 2;
+    
+    s16 *SampleOut = (s16*)SoundBuffer;
+
+    for (s32 SampleIndex = 0;
+         SampleIndex < SampleCount;
+         SampleIndex++)
+    {
+        s16 SampleValue = ((RunningSampleIndex++ / HalfSquareWavePeriod) % 2) ? ToneVolume : -ToneVolume;
+        *SampleOut++ = SampleValue;
+        *SampleOut++ = SampleValue;
+    }
+
+    SDL_QueueAudio(1, SoundBuffer, BytesToWrite);
+
     glClearColor(0.667f, 0.667f, 0.667f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
 
@@ -223,10 +250,18 @@ void RenderLoop(void *Arg)
     SDL_GL_SwapWindow(Window);
 }
 
+/*
+internal void
+SDLAudioCallback(void *UserData, u8 *AudioData, s32 Length)
+{
+    // Clear audio buffer to silence.
+    memset(AudioData, 0, Length);
+}*/
+
 int main(int argc, const char * argv[]) 
 {
 
-#if SHOW_RENDER_LOG
+#if SHOW_LOG
     printf("Starting Game\n");
 #endif
 
@@ -235,6 +270,50 @@ int main(int argc, const char * argv[])
     RenderCommands.ScreenScaleFactor = 2.0f;
 
     SDL_Window *Window;
+
+    if (SDL_Init(SDL_INIT_AUDIO) < 0)
+    {
+#if SHOW_LOG
+        printf ("Couldn't initialize SDL Audio: %s \n", SDL_GetError());
+#endif
+    }
+
+#if SHOW_LOG
+    printf("Start of SDL Audio Setup \n");
+#endif
+
+    s32 BytesToWrite = 1024; 
+    s32 SamplesPerSecond = 48000;
+
+    SDL_AudioSpec AudioSettings = {0};
+    AudioSettings.freq = SamplesPerSecond;
+    AudioSettings.format = AUDIO_S16LSB;
+    AudioSettings.channels = 2;
+    AudioSettings.samples = BytesToWrite;
+
+#if SHOW_LOG
+    printf("Before Call to SDL_OpenAudio \n");
+#endif
+    SDL_OpenAudio(&AudioSettings, 0);
+
+    if (AudioSettings.format != AUDIO_S16LSB)
+    {
+        printf("Warning: Audio format doesn't match S16LSB \n");
+    }
+
+#if SHOW_LOG
+    printf("Start of SDL Audio Buffer Setup \n");
+#endif
+
+    void *SoundBuffer = malloc(BytesToWrite);
+
+    b32 SoundIsPlaying = false;
+
+    if (!SoundIsPlaying)
+    {
+        SDL_PauseAudio(0);
+        SoundIsPlaying = true;
+    }
 
     SDL_CreateWindowAndRenderer((r32)RenderCommands.ViewportWidth, 
                                 (r32)RenderCommands.ViewportHeight, 
@@ -377,6 +456,9 @@ int main(int argc, const char * argv[])
 
     render_loop_arguments Args = {};
     Args.Window = Window;
+    Args.SoundBuffer = SoundBuffer;
+    Args.BytesToWrite = BytesToWrite;
+    Args.SamplesPerSecond = SamplesPerSecond;
 
     emscripten_set_main_loop_arg(RenderLoop, (void *)&Args, 60, 1);
 
