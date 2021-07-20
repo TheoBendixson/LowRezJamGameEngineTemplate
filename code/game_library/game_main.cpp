@@ -15,7 +15,7 @@ LoadSounds(game_memory *Memory, game_sound_mix_panel *GameSoundMixPanel)
 
     if (BackgroundMusicFile.ContentsSize > 0)
     {
-
+        PlatformLogMessage("Loaded Background Music \n");
     }
 }
 

@@ -402,6 +402,9 @@ int main(int argc, const char * argv[])
     GameMemory.SoundPartitionSize = Megabytes(128);
     GameMemory.TransientStorage = malloc(GameMemory.TransientStorageSize);
 
+    game_sound_mix_panel MixPanel = {};
+    LoadSounds(&GameMemory, &MixPanel);
+
     render_layer *TileLayer = &RenderCommands.TileLayer;
     TileLayer->VertexCount = 0;
     TileLayer->MaxVertices = 1000;
