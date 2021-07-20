@@ -5,6 +5,21 @@
 #include "game_renderer.cpp"
 
 internal void
+LoadSounds(game_memory *Memory, game_sound_mix_panel *GameSoundMixPanel)
+{
+    game_state *GameState = (game_state *)Memory->PermanentStorage;
+    memory_arena *SoundsArena = &GameState->SoundsArena;
+    InitializeArena(SoundsArena, Memory->SoundPartitionSize, (u8*)Memory->SoundsPartition);
+
+    read_file_result BackgroundMusicFile = PlatformReadEntireFile("background_music.wav");
+
+    if (BackgroundMusicFile.ContentsSize > 0)
+    {
+
+    }
+}
+
+internal void
 LoadTextures(game_memory *Memory, game_texture_buffer *GameTextureBuffer, 
              game_texture_map *TextureMap)
 {

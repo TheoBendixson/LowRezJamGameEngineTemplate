@@ -6,6 +6,9 @@ struct game_memory
     u64 PermanentStorageSize;
     void *PermanentStorage;
 
+    void *SoundsPartition;
+    u64 SoundPartitionSize;
+
     u64 TransientStorageSize;
     void *TransientStorage;
 };

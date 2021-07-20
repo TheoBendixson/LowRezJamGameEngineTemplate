@@ -382,7 +382,6 @@ int main(int argc, const char * argv[])
     printf("Start of SDL Audio Buffer Setup \n");
 #endif
 
-
     b32 SoundIsPlaying = false;
 
     if (!SoundIsPlaying)
@@ -395,10 +394,12 @@ int main(int argc, const char * argv[])
                                 (r32)RenderCommands.ViewportHeight, 
                                 0, &Window, nullptr);
 
-    GameMemory.PermanentStorageSize = Megabytes(64);
+    GameMemory.PermanentStorageSize = Megabytes(256);
     GameMemory.TransientStorageSize = Megabytes(64);
 
     GameMemory.PermanentStorage = malloc(GameMemory.PermanentStorageSize);
+    GameMemory.SoundsPartition = (u8*)GameMemory.PermanentStorage + Megabytes(64);
+    GameMemory.SoundPartitionSize = Megabytes(128);
     GameMemory.TransientStorage = malloc(GameMemory.TransientStorageSize);
 
     render_layer *TileLayer = &RenderCommands.TileLayer;
