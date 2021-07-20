@@ -61,7 +61,7 @@ internal game_render_commands RenderCommands = {};
 internal game_texture_map *TextureMap = (game_texture_map *)malloc(sizeof(game_texture_map));
 internal game_input GameInput = {};
 internal u32 RunningSampleIndex = 0;
-internal s32 SDLAudioSampleCount = 4096; 
+internal s32 SDLAudioSampleCount = 512; 
 
 void RenderLoop(void *Arg)
 {
@@ -175,19 +175,25 @@ void RenderLoop(void *Arg)
 
     SDL_LockAudio();
 
-    s32 ByteToLock = RunningSampleIndex*BytesPerSample % SecondaryBufferSize;
-    s32 BytesToWrite;
+    u32 SamplesPerFrameUpdate = SamplesPerSecond/60; 
+    u32 FramesAhead = 2;
+    u32 DesiredFrameBytesToWrite = SamplesPerFrameUpdate*FramesAhead*BytesPerSample;
 
-    if(ByteToLock == AudioRingBuffer->PlayCursor)
-    {
-        BytesToWrite = SecondaryBufferSize;
-    } else if(ByteToLock > AudioRingBuffer->PlayCursor)
-    {
+    u32 TargetCursor = (AudioRingBuffer->PlayCursor + DesiredFrameBytesToWrite)%SecondaryBufferSize;
+
+    u32 ByteToLock = (RunningSampleIndex*BytesPerSample)%SecondaryBufferSize; 
+    u32 BytesToWrite;
+
+     if (ByteToLock > TargetCursor) {
+        // NOTE: (ted)  Play Cursor wrapped.
+
+        // Bytes to the end of the circular buffer.
         BytesToWrite = (SecondaryBufferSize - ByteToLock);
-        BytesToWrite += AudioRingBuffer->PlayCursor;
-    } else
-    {
-        BytesToWrite = AudioRingBuffer->PlayCursor - ByteToLock;
+
+        // Bytes up to the target cursor.
+        BytesToWrite += TargetCursor;
+    } else {
+        BytesToWrite = TargetCursor - ByteToLock;
     }
 
     void *Region1 = (u8*)AudioRingBuffer->Data + ByteToLock;
