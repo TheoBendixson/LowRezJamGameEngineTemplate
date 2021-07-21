@@ -52,6 +52,8 @@ struct render_loop_arguments
 {
     SDL_Window *Window;
     sdl_audio_ring_buffer *AudioRingBuffer;
+    game_sound_mix_panel *GameSoundMixPanel;
+    game_sound_output_buffer *GameSoundOutputBuffer;
     s32 SamplesPerSecond;
     s32 BytesPerSample;
 };
@@ -68,6 +70,9 @@ void RenderLoop(void *Arg)
     render_loop_arguments *Args = (render_loop_arguments *)Arg;
     SDL_Window *Window = Args->Window;
     sdl_audio_ring_buffer *AudioRingBuffer = Args->AudioRingBuffer;
+    game_sound_output_buffer *GameSoundOutputBuffer = Args->GameSoundOutputBuffer;
+    game_sound_mix_panel *GameSoundMixPanel = Args->GameSoundMixPanel;
+
     s32 BytesPerSample = Args->BytesPerSample;
     s32 SamplesPerSecond = Args->SamplesPerSecond;
 
@@ -166,6 +171,11 @@ void RenderLoop(void *Arg)
     }
 
     GameUpdateAndRender(&GameMemory, TextureMap, &GameInput, &RenderCommands);
+
+    GameSoundOutputBuffer->SamplesToWriteThisFrame = (BytesToWrite/BytesPerSample);
+    GameSoundOutputBuffer->SamplesWrittenThisFrame = 0;
+
+    GetSoundSamples(&GameMemory, GameSoundOutputBuffer, GameSoundMixPanelPtr);
 
     s32 SecondaryBufferSize = AudioRingBuffer->Size;
     s32 ToneHz = 256;
@@ -360,6 +370,12 @@ int main(int argc, const char * argv[])
     AudioRingBuffer.Data = malloc(SecondaryBufferSize);
     AudioRingBuffer.PlayCursor = AudioRingBuffer.WriteCursor = 0;
 
+    game_sound_output_buffer SoundOutputBuffer = {};
+    SoundOutputBuffer.Samples = (s16*)malloc(BytesPerSample*SamplesPerSecond);
+    SoundOutputBuffer.SamplesPerSecond = SamplesPerSecond;
+    SoundOutputBuffer.SamplesToWriteThisFrame = 0;
+    SoundOutputBuffer.SamplesWrittenThisFrame = 0;
+
     SDL_AudioSpec AudioSettings = {0};
     AudioSettings.freq = SamplesPerSecond;
     AudioSettings.format = AUDIO_S16LSB;
@@ -539,6 +555,8 @@ int main(int argc, const char * argv[])
     Args.AudioRingBuffer = &AudioRingBuffer;
     Args.SamplesPerSecond = SamplesPerSecond;
     Args.BytesPerSample = BytesPerSample;
+    Args.GameSoundMixPanel = GameSoundMixPanel;
+    Args.GameSoundOutputBuffer = &GameSoundOutputBuffer;
 
     emscripten_set_main_loop_arg(RenderLoop, (void *)&Args, 60, 1);
 

@@ -4,6 +4,47 @@
 #include "game_texture_loading.cpp"
 #include "game_renderer.cpp"
 
+struct wav_file_header
+{
+    char Riff[4];
+    u32 FileSize;
+    char Wave[4];
+    char FMTChunkMarker[4];
+    u32 FMTLength;
+    u16 FormatType;
+    u16 Channels;
+    u32 SampleRate;
+    u32 ByteRate;
+    u16 BlockAlign;
+    u16 BitsPerSample;
+    char DataChunkHeader[4];
+    u32 DataSize;
+};
+
+inline
+u32 GetSampleCount(u32 SoundDataSize)
+{
+    return SoundDataSize/sizeof(s16);
+}
+
+internal void
+InitializeAndFillSoundInputBuffer(memory_arena *SoundsArena, game_sound_input_buffer *SoundInputBuffer,
+                                  s16 *SourceData, u32 SampleCount)
+{
+    SoundInputBuffer->IsPlaying = false;
+    SoundInputBuffer->CurrentIndex = 0;
+    SoundInputBuffer->SampleCount = SampleCount;
+    SoundInputBuffer->Samples = PushArray(SoundsArena, SoundInputBuffer->SampleCount, s16);
+
+    s16 *Dest = SoundInputBuffer->Samples;
+
+    for (u32 SampleIndex = 0; SampleIndex < SoundInputBuffer->SampleCount; SampleIndex++)
+    {
+        *Dest++ = *SourceData++;
+    }
+
+}
+
 internal void
 LoadSounds(game_memory *Memory, game_sound_mix_panel *GameSoundMixPanel)
 {
@@ -16,6 +57,14 @@ LoadSounds(game_memory *Memory, game_sound_mix_panel *GameSoundMixPanel)
     if (BackgroundMusicFile.ContentsSize > 0)
     {
         PlatformLogMessage("Loaded Background Music \n");
+
+        wav_file_header *WaveHeader = (wav_file_header *)BackgroundMusicFile.Contents;
+        s16 *SoundSource = (s16*)((u8*)BackgroundMusicFile.Contents + sizeof(wav_file_header));
+        u32 SampleCount = GetSampleCount(WaveHeader->DataSize);
+        InitializeAndFillSoundInputBuffer(SoundsArena, &GameSoundMixPanel->BackgroundMusic,
+                                          SoundSource, SampleCount);
+
+        PlatformLogMessage("Setup Sound Input Buffer \n");
     }
 }
 
@@ -116,4 +165,33 @@ GameUpdateAndRender(game_memory *GameMemory, game_texture_map *TextureMap,
         Max.Y += TileWidthInPixels;
     }
 
+}
+
+internal void
+GameGetSoundSamples(game_memory *Memory, game_sound_output_buffer *SoundOutputBuffer, 
+                    game_sound_mix_panel *GameSoundMixPanel)
+{
+    game_state *GameState = (game_state *)Memory->PermanentStorage;
+
+    game_sound_input_buffer *BackgroundMusic = &GameSoundMixPanel->BackgroundMusic1;
+
+    for (u32 SampleIndex = 0; 
+         SampleIndex < HalfAudioFramesToWriteThisFrame; 
+         SampleIndex++)
+    {
+        s16 BackgroundMusicSample = BackgroundMusic->Samples[BackgroundMusic->CurrentIndex];
+        BackgroundMusic->CurrentIndex++;
+
+        SoundOutputBuffer->SamplesWrittenThisFrame++;
+
+        if (BackgroundMusic->CurrentIndex >= BackgroundMusic->SampleCount)
+        {
+            BackgroundMusic->CurrentIndex = 0;
+        }
+
+        r32 MasterVolume = 0.7f;
+        r32 MixedSoundsInFloatSpace = (r32)BackgroundMusicSample*MasterVolume;
+        s16 MixedSounds = (s16)(MixedSoundsInFloatSpace + 0.5);
+        SoundOutputBuffer->Samples[SampleIndex] = MixedSounds;
+    }
 }
