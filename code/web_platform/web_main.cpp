@@ -356,7 +356,7 @@ int main(int argc, const char * argv[])
     printf("Start of SDL Audio Setup \n");
 #endif
 
-    s32 SamplesPerSecond = 48000;
+    s32 SamplesPerSecond = 44100;
 
     s32 BytesPerSample = sizeof(s16)*2;  
     s32 SecondaryBufferSize = SamplesPerSecond*BytesPerSample;
