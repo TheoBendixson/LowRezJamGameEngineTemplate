@@ -173,7 +173,9 @@ GameGetSoundSamples(game_memory *Memory, game_sound_output_buffer *SoundOutputBu
 {
     game_state *GameState = (game_state *)Memory->PermanentStorage;
 
-    game_sound_input_buffer *BackgroundMusic = &GameSoundMixPanel->BackgroundMusic1;
+    game_sound_input_buffer *BackgroundMusic = &GameSoundMixPanel->BackgroundMusic;
+
+    u32 HalfAudioFramesToWriteThisFrame = SoundOutputBuffer->SamplesToWriteThisFrame*2;
 
     for (u32 SampleIndex = 0; 
          SampleIndex < HalfAudioFramesToWriteThisFrame; 

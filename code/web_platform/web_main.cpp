@@ -21,7 +21,7 @@
 
 #define MAX_TEXTURES    200
 
-#define SHOW_LOG                1
+#define SHOW_LOG                0
 #define SHOW_RENDER_LOOP_LOG    0
 
 PLATFORM_LOG_MESSAGE(PlatformLogMessage)
@@ -172,22 +172,12 @@ void RenderLoop(void *Arg)
 
     GameUpdateAndRender(&GameMemory, TextureMap, &GameInput, &RenderCommands);
 
-    GameSoundOutputBuffer->SamplesToWriteThisFrame = (BytesToWrite/BytesPerSample);
-    GameSoundOutputBuffer->SamplesWrittenThisFrame = 0;
-
-    GetSoundSamples(&GameMemory, GameSoundOutputBuffer, GameSoundMixPanelPtr);
-
     s32 SecondaryBufferSize = AudioRingBuffer->Size;
-    s32 ToneHz = 256;
-    s32 SquareWavePeriod = SamplesPerSecond / ToneHz;
-    s32 HalfSquareWavePeriod = SquareWavePeriod / 2;
-    s16 ToneVolume = 3000;
-
-    SDL_LockAudio();
-
     u32 SamplesPerFrameUpdate = SamplesPerSecond/60; 
     u32 FramesAhead = 2;
     u32 DesiredFrameBytesToWrite = SamplesPerFrameUpdate*FramesAhead*BytesPerSample;
+
+    SDL_LockAudio();
 
     u32 TargetCursor = (AudioRingBuffer->PlayCursor + DesiredFrameBytesToWrite)%SecondaryBufferSize;
 
@@ -219,6 +209,12 @@ void RenderLoop(void *Arg)
 
     SDL_UnlockAudio();
 
+    GameSoundOutputBuffer->SamplesToWriteThisFrame = (BytesToWrite/BytesPerSample);
+    GameSoundOutputBuffer->SamplesWrittenThisFrame = 0;
+
+    GameGetSoundSamples(&GameMemory, GameSoundOutputBuffer, GameSoundMixPanel);
+    s16 *SoundSrc = GameSoundOutputBuffer->Samples;
+
     s32 Region1SampleCount = Region1Size/BytesPerSample;
     s16 *SampleOut = (s16 *)Region1;
 
@@ -226,9 +222,9 @@ void RenderLoop(void *Arg)
         SampleIndex < Region1SampleCount;
         ++SampleIndex)
     {
-        s16 SampleValue = ((RunningSampleIndex++ / HalfSquareWavePeriod) % 2) ? ToneVolume : -ToneVolume;
-        *SampleOut++ = SampleValue;
-        *SampleOut++ = SampleValue;
+        *SampleOut++ = *SoundSrc++;
+        *SampleOut++ = *SoundSrc++;
+        RunningSampleIndex++;
     }
 
     s32 Region2SampleCount = Region2Size/BytesPerSample;
@@ -238,9 +234,9 @@ void RenderLoop(void *Arg)
         SampleIndex < Region2SampleCount;
         ++SampleIndex)
     {
-        s16 SampleValue = ((RunningSampleIndex++ / HalfSquareWavePeriod) % 2) ? ToneVolume : -ToneVolume;
-        *SampleOut++ = SampleValue;
-        *SampleOut++ = SampleValue;
+        *SampleOut++ = *SoundSrc++;
+        *SampleOut++ = *SoundSrc++;
+        RunningSampleIndex++;
     }
 
     glClearColor(0.667f, 0.667f, 0.667f, 1.0f);
@@ -418,8 +414,8 @@ int main(int argc, const char * argv[])
     GameMemory.SoundPartitionSize = Megabytes(128);
     GameMemory.TransientStorage = malloc(GameMemory.TransientStorageSize);
 
-    game_sound_mix_panel MixPanel = {};
-    LoadSounds(&GameMemory, &MixPanel);
+    game_sound_mix_panel GameSoundMixPanel = {};
+    LoadSounds(&GameMemory, &GameSoundMixPanel);
 
     render_layer *TileLayer = &RenderCommands.TileLayer;
     TileLayer->VertexCount = 0;
@@ -555,8 +551,8 @@ int main(int argc, const char * argv[])
     Args.AudioRingBuffer = &AudioRingBuffer;
     Args.SamplesPerSecond = SamplesPerSecond;
     Args.BytesPerSample = BytesPerSample;
-    Args.GameSoundMixPanel = GameSoundMixPanel;
-    Args.GameSoundOutputBuffer = &GameSoundOutputBuffer;
+    Args.GameSoundMixPanel = &GameSoundMixPanel;
+    Args.GameSoundOutputBuffer = &SoundOutputBuffer;
 
     emscripten_set_main_loop_arg(RenderLoop, (void *)&Args, 60, 1);
 
