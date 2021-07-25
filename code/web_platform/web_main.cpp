@@ -40,20 +40,41 @@ PLATFORM_LOG_MESSAGE_U32(PlatformLogMessageU32)
 
 #include "../game_library/game_main.cpp"
 
+struct sdl_audio_ring_buffer
+{
+    s32 Size;
+    s32 WriteCursor;
+    s32 PlayCursor;
+    void *Data;
+};
+
 struct render_loop_arguments
 {
     SDL_Window *Window;
+    sdl_audio_ring_buffer *AudioRingBuffer;
+    game_sound_mix_panel *GameSoundMixPanel;
+    game_sound_output_buffer *GameSoundOutputBuffer;
+    s32 SamplesPerSecond;
+    s32 BytesPerSample;
 };
 
-static game_memory GameMemory = {};
-static game_render_commands RenderCommands = {};
-static game_texture_map *TextureMap = (game_texture_map *)malloc(sizeof(game_texture_map));;
-static game_input GameInput = {};
+internal game_memory GameMemory = {};
+internal game_render_commands RenderCommands = {};
+internal game_texture_map *TextureMap = (game_texture_map *)malloc(sizeof(game_texture_map));
+internal game_input GameInput = {};
+internal u32 RunningSampleIndex = 0;
+internal s32 SDLAudioSampleCount = 512; 
 
 void RenderLoop(void *Arg)
 {
     render_loop_arguments *Args = (render_loop_arguments *)Arg;
     SDL_Window *Window = Args->Window;
+    sdl_audio_ring_buffer *AudioRingBuffer = Args->AudioRingBuffer;
+    game_sound_output_buffer *GameSoundOutputBuffer = Args->GameSoundOutputBuffer;
+    game_sound_mix_panel *GameSoundMixPanel = Args->GameSoundMixPanel;
+
+    s32 BytesPerSample = Args->BytesPerSample;
+    s32 SamplesPerSecond = Args->SamplesPerSecond;
 
     game_controller_input *Controller = &GameInput.Controller;
 
@@ -151,6 +172,73 @@ void RenderLoop(void *Arg)
 
     GameUpdateAndRender(&GameMemory, TextureMap, &GameInput, &RenderCommands);
 
+    s32 SecondaryBufferSize = AudioRingBuffer->Size;
+    u32 SamplesPerFrameUpdate = SamplesPerSecond/60; 
+    u32 FramesAhead = 2;
+    u32 DesiredFrameBytesToWrite = SamplesPerFrameUpdate*FramesAhead*BytesPerSample;
+
+    SDL_LockAudio();
+
+    u32 TargetCursor = (AudioRingBuffer->PlayCursor + DesiredFrameBytesToWrite)%SecondaryBufferSize;
+
+    u32 ByteToLock = (RunningSampleIndex*BytesPerSample)%SecondaryBufferSize; 
+    u32 BytesToWrite;
+
+     if (ByteToLock > TargetCursor) {
+        // NOTE: (ted)  Play Cursor wrapped.
+
+        // Bytes to the end of the circular buffer.
+        BytesToWrite = (SecondaryBufferSize - ByteToLock);
+
+        // Bytes up to the target cursor.
+        BytesToWrite += TargetCursor;
+    } else {
+        BytesToWrite = TargetCursor - ByteToLock;
+    }
+
+    void *Region1 = (u8*)AudioRingBuffer->Data + ByteToLock;
+    s32 Region1Size = BytesToWrite;
+
+    if (Region1Size + ByteToLock > SecondaryBufferSize)
+    {
+        Region1Size = SecondaryBufferSize - ByteToLock;
+    }
+
+    void *Region2 = AudioRingBuffer->Data;
+    s32 Region2Size = BytesToWrite - Region1Size;
+
+    SDL_UnlockAudio();
+
+    GameSoundOutputBuffer->SamplesToWriteThisFrame = (BytesToWrite/BytesPerSample);
+    GameSoundOutputBuffer->SamplesWrittenThisFrame = 0;
+
+    GameGetSoundSamples(&GameMemory, GameSoundOutputBuffer, GameSoundMixPanel);
+    s16 *SoundSrc = GameSoundOutputBuffer->Samples;
+
+    s32 Region1SampleCount = Region1Size/BytesPerSample;
+    s16 *SampleOut = (s16 *)Region1;
+
+    for(s32 SampleIndex = 0;
+        SampleIndex < Region1SampleCount;
+        ++SampleIndex)
+    {
+        *SampleOut++ = *SoundSrc++;
+        *SampleOut++ = *SoundSrc++;
+        RunningSampleIndex++;
+    }
+
+    s32 Region2SampleCount = Region2Size/BytesPerSample;
+    SampleOut = (s16 *)Region2;
+
+    for(s32 SampleIndex = 0;
+        SampleIndex < Region2SampleCount;
+        ++SampleIndex)
+    {
+        *SampleOut++ = *SoundSrc++;
+        *SampleOut++ = *SoundSrc++;
+        RunningSampleIndex++;
+    }
+
     glClearColor(0.667f, 0.667f, 0.667f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
 
@@ -223,10 +311,31 @@ void RenderLoop(void *Arg)
     SDL_GL_SwapWindow(Window);
 }
 
+
+internal void
+SDLAudioCallback(void *UserData, u8 *AudioData, s32 Length)
+{
+    sdl_audio_ring_buffer *RingBuffer = (sdl_audio_ring_buffer *)UserData;
+
+    s32 Region1Size = Length;
+    s32 Region2Size = 0;
+
+    if (RingBuffer->PlayCursor + Length > RingBuffer->Size)
+    {
+        Region1Size = RingBuffer->Size - RingBuffer->PlayCursor;
+        Region2Size = Length - Region1Size;
+    }
+
+    memcpy(AudioData, (u8*)(RingBuffer->Data) + RingBuffer->PlayCursor, Region1Size);
+    memcpy(&AudioData[Region1Size], RingBuffer->Data, Region2Size);
+    RingBuffer->PlayCursor = (RingBuffer->PlayCursor + Length) % RingBuffer->Size;
+    RingBuffer->WriteCursor = (RingBuffer->PlayCursor + (SDLAudioSampleCount*2)) % RingBuffer->Size;
+}
+
 int main(int argc, const char * argv[]) 
 {
 
-#if SHOW_RENDER_LOG
+#if SHOW_LOG
     printf("Starting Game\n");
 #endif
 
@@ -236,15 +345,77 @@ int main(int argc, const char * argv[])
 
     SDL_Window *Window;
 
+    if (SDL_Init(SDL_INIT_AUDIO) < 0)
+    {
+#if SHOW_LOG
+        printf ("Couldn't initialize SDL Audio: %s \n", SDL_GetError());
+#endif
+    }
+
+#if SHOW_LOG
+    printf("Start of SDL Audio Setup \n");
+#endif
+
+    s32 SamplesPerSecond = 44100;
+
+    s32 BytesPerSample = sizeof(s16)*2;  
+    s32 SecondaryBufferSize = SamplesPerSecond*BytesPerSample;
+
+    sdl_audio_ring_buffer AudioRingBuffer = {};
+    AudioRingBuffer.Size = SecondaryBufferSize;
+    AudioRingBuffer.Data = malloc(SecondaryBufferSize);
+    AudioRingBuffer.PlayCursor = AudioRingBuffer.WriteCursor = 0;
+
+    game_sound_output_buffer SoundOutputBuffer = {};
+    SoundOutputBuffer.Samples = (s16*)malloc(BytesPerSample*SamplesPerSecond);
+    SoundOutputBuffer.SamplesPerSecond = SamplesPerSecond;
+    SoundOutputBuffer.SamplesToWriteThisFrame = 0;
+    SoundOutputBuffer.SamplesWrittenThisFrame = 0;
+
+    SDL_AudioSpec AudioSettings = {0};
+    AudioSettings.freq = SamplesPerSecond;
+    AudioSettings.format = AUDIO_S16LSB;
+    AudioSettings.channels = 2;
+    AudioSettings.samples = SDLAudioSampleCount;
+    AudioSettings.callback = &SDLAudioCallback;
+    AudioSettings.userdata = &AudioRingBuffer;
+
+#if SHOW_LOG
+    printf("Before Call to SDL_OpenAudio \n");
+#endif
+    SDL_OpenAudio(&AudioSettings, 0);
+
+    if (AudioSettings.format != AUDIO_S16LSB)
+    {
+        printf("Warning: Audio format doesn't match S16LSB \n");
+    }
+
+#if SHOW_LOG
+    printf("Start of SDL Audio Buffer Setup \n");
+#endif
+
+    b32 SoundIsPlaying = false;
+
+    if (!SoundIsPlaying)
+    {
+        SDL_PauseAudio(0);
+        SoundIsPlaying = true;
+    }
+
     SDL_CreateWindowAndRenderer((r32)RenderCommands.ViewportWidth, 
                                 (r32)RenderCommands.ViewportHeight, 
                                 0, &Window, nullptr);
 
-    GameMemory.PermanentStorageSize = Megabytes(64);
+    GameMemory.PermanentStorageSize = Megabytes(256);
     GameMemory.TransientStorageSize = Megabytes(64);
 
     GameMemory.PermanentStorage = malloc(GameMemory.PermanentStorageSize);
+    GameMemory.SoundsPartition = (u8*)GameMemory.PermanentStorage + Megabytes(64);
+    GameMemory.SoundPartitionSize = Megabytes(128);
     GameMemory.TransientStorage = malloc(GameMemory.TransientStorageSize);
+
+    game_sound_mix_panel GameSoundMixPanel = {};
+    LoadSounds(&GameMemory, &GameSoundMixPanel);
 
     render_layer *TileLayer = &RenderCommands.TileLayer;
     TileLayer->VertexCount = 0;
@@ -377,6 +548,11 @@ int main(int argc, const char * argv[])
 
     render_loop_arguments Args = {};
     Args.Window = Window;
+    Args.AudioRingBuffer = &AudioRingBuffer;
+    Args.SamplesPerSecond = SamplesPerSecond;
+    Args.BytesPerSample = BytesPerSample;
+    Args.GameSoundMixPanel = &GameSoundMixPanel;
+    Args.GameSoundOutputBuffer = &SoundOutputBuffer;
 
     emscripten_set_main_loop_arg(RenderLoop, (void *)&Args, 60, 1);
 

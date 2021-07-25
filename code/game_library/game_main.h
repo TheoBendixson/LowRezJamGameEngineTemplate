@@ -2,6 +2,7 @@
 #include "game_math.h"
 #include "game_memory.h"
 #include "memory_arena.h"
+#include "game_sound.h"
 #include "file_io.h"
 #include "platform_logging.h"
 #include "game_texture_map.h"
@@ -11,4 +12,5 @@
 struct game_state
 {
     memory_arena ScratchArena;
+    memory_arena SoundsArena;
 };
