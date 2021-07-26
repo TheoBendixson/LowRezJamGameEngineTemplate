@@ -6,7 +6,13 @@ setlocal
 set web_platform_layer_path=..\..\code/web_platform
 set build_directory=..\..\build\web_assembly
 
-set compiler_flags=-s ALLOW_MEMORY_GROWTH=1 -fsanitize=address -s INITIAL_MEMORY=281804800 -s ASSERTIONS=1 -s ERROR_ON_UNDEFINED_SYMBOLS=0 -s WASM=1 -s USE_SDL=2
+set compiler_flags=-s ALLOW_MEMORY_GROWTH=1 ^
+		   -fsanitize=address -s ^
+		   INITIAL_MEMORY=281804800 ^
+		   -s ASSERTIONS=1 ^
+		   -s ERROR_ON_UNDEFINED_SYMBOLS=0 ^
+		   -s WASM=1 ^
+		   -s USE_SDL=2
 
 mkdir %build_directory%
 pushd %build_directory%
