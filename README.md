@@ -38,9 +38,7 @@ This game engine probably isn't like anything you're used to. It isn't a framewo
 
 It is C++ based, although it doesn't use all of the features of C++. It's more like straight C. Many refer to this style as "data oriented". Go do a YouTube search and you'll find some useful videos.
 
-For the moment, this game engine only builds from a Mac (and probably linux but I haven't tested that). To get it to build on a PC, you would need to create a build.bat file with a list of commands to do that build on Windows.
-
-To build, open terminal and go into the build directory. Then run the build.sh script. This script will output the necessary files into the build directory.
+To build, open terminal and go into the build directory. If you are on Mac, run the build.sh script. If you are on Windows, you will want to run build.bat. These scripts will output the necessary files to the build directory.
 
 To play any games created with this engine, you just need to copy the files in the build/web_assembly directory to some web server somewhere. You can also run your own web server locally to test it out.
 
