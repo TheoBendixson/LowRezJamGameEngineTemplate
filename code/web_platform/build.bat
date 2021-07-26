@@ -18,7 +18,8 @@ mkdir %build_directory%
 pushd %build_directory%
 
 echo Debug Build
-emcc "-Wno-writable-strings" -g %web_platform_layer_path%\web_main.cpp -std=c++11 %compiler_flags% -DWEBASM=1 --profiling-funcs --preload-file "..\..\resources/" -o game.js
+emcc "-Wno-writable-strings" -g %web_platform_layer_path%\web_main.cpp -std=c++11 %compiler_flags% -DWEBASM=1 ^
+     --profiling-funcs --preload-file "..\..\resources/" -o game.js
 
 echo Copying other files to build directory
 set html_source=..\..\code\web_platform\game.html
