@@ -24,6 +24,11 @@
 #define SHOW_LOG                0
 #define SHOW_RENDER_LOOP_LOG    0
 
+PLATFORM_FREE_MEMORY(PlatformFreeMemory)
+{	
+   free(Memory); 
+}
+
 PLATFORM_LOG_MESSAGE(PlatformLogMessage)
 {
 #if SHOW_LOG
@@ -413,6 +418,8 @@ int main(int argc, const char * argv[])
     GameMemory.SoundsPartition = (u8*)GameMemory.PermanentStorage + Megabytes(64);
     GameMemory.SoundPartitionSize = Megabytes(128);
     GameMemory.TransientStorage = malloc(GameMemory.TransientStorageSize);
+
+    GameMemory.IsInitialized = false;
 
     game_sound_mix_panel GameSoundMixPanel = {};
     LoadSounds(&GameMemory, &GameSoundMixPanel);

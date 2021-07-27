@@ -1,72 +1,8 @@
 #include "game_input.h"
 #include "game_texture.h"
-
 #include "game_texture_loading.cpp"
 #include "game_renderer.cpp"
-
-struct wav_file_header
-{
-    char Riff[4];
-    u32 FileSize;
-    char Wave[4];
-    char FMTChunkMarker[4];
-    u32 FMTLength;
-    u16 FormatType;
-    u16 Channels;
-    u32 SampleRate;
-    u32 ByteRate;
-    u16 BlockAlign;
-    u16 BitsPerSample;
-    char DataChunkHeader[4];
-    u32 DataSize;
-};
-
-inline
-u32 GetSampleCount(u32 SoundDataSize)
-{
-    return SoundDataSize/sizeof(s16);
-}
-
-internal void
-InitializeAndFillSoundInputBuffer(memory_arena *SoundsArena, game_sound_input_buffer *SoundInputBuffer,
-                                  s16 *SourceData, u32 SampleCount)
-{
-    SoundInputBuffer->IsPlaying = false;
-    SoundInputBuffer->CurrentIndex = 0;
-    SoundInputBuffer->SampleCount = SampleCount;
-    SoundInputBuffer->Samples = PushArray(SoundsArena, SoundInputBuffer->SampleCount, s16);
-
-    s16 *Dest = SoundInputBuffer->Samples;
-
-    for (u32 SampleIndex = 0; SampleIndex < SoundInputBuffer->SampleCount; SampleIndex++)
-    {
-        *Dest++ = *SourceData++;
-    }
-
-}
-
-internal void
-LoadSounds(game_memory *Memory, game_sound_mix_panel *GameSoundMixPanel)
-{
-    game_state *GameState = (game_state *)Memory->PermanentStorage;
-    memory_arena *SoundsArena = &GameState->SoundsArena;
-    InitializeArena(SoundsArena, Memory->SoundPartitionSize, (u8*)Memory->SoundsPartition);
-
-    read_file_result BackgroundMusicFile = PlatformReadEntireFile("background_music.wav");
-
-    if (BackgroundMusicFile.ContentsSize > 0)
-    {
-        PlatformLogMessage("Loaded Background Music \n");
-
-        wav_file_header *WaveHeader = (wav_file_header *)BackgroundMusicFile.Contents;
-        s16 *SoundSource = (s16*)((u8*)BackgroundMusicFile.Contents + sizeof(wav_file_header));
-        u32 SampleCount = GetSampleCount(WaveHeader->DataSize);
-        InitializeAndFillSoundInputBuffer(SoundsArena, &GameSoundMixPanel->BackgroundMusic,
-                                          SoundSource, SampleCount);
-
-        PlatformLogMessage("Setup Sound Input Buffer \n");
-    }
-}
+#include "game_sound_loading.cpp"
 
 internal void
 LoadTextures(game_memory *Memory, game_texture_buffer *GameTextureBuffer, 
@@ -129,6 +65,8 @@ LoadTextures(game_memory *Memory, game_texture_buffer *GameTextureBuffer,
         PlatformLogMessage("Loaded PNG Was Not Expected Content Size \n");
     }
 
+    PlatformFreeMemory(AssetPackFile.Contents);
+
     PlatformLogMessage("Texture Loading Before Assert \n");
     Assert(GameTextureBuffer->TexturesLoaded < GameTextureBuffer->MaxTextures);
     PlatformLogMessage("End of Texture Loading \n");
@@ -138,6 +76,14 @@ internal void
 GameUpdateAndRender(game_memory *GameMemory, game_texture_map *TextureMap, 
                     game_input *GameInput, game_render_commands *RenderCommands)
 {
+    game_state *GameState = (game_state*)GameMemory;
+
+    if (!GameMemory->IsInitialized)
+    {
+        GameState->TestActionFrameCount = 0;
+        GameMemory->IsInitialized = true;
+    }
+
     r32 TileWidthInPixels = 128.0f;
     v2 Min = { 0.0f, 0.0f };
     v2 Max = { TileWidthInPixels, TileWidthInPixels };
@@ -165,17 +111,51 @@ GameUpdateAndRender(game_memory *GameMemory, game_texture_map *TextureMap,
         Max.Y += TileWidthInPixels;
     }
 
+    if (GameState->TestActionFrameCount >= 1)
+    {
+        GameState->TestActionFrameCount--;
+    }
+
+    if (GameInput->Controller.B.EndedDown &&
+        GameState->TestActionFrameCount == 0)
+    {
+        PlatformLogMessage("Jump Triggered From Gamepad \n");
+        GameState->TestActionFrameCount = 100;
+    }
+
+}
+
+internal void
+ResetSoundEffectIfAtEnd(game_sound_input_buffer *SoundEffectBuffer)
+{
+    if (SoundEffectBuffer->CurrentIndex >= SoundEffectBuffer->SampleCount)
+    {
+        SoundEffectBuffer->CurrentIndex = 0;
+        SoundEffectBuffer->IsPlaying = false;
+    }
 }
 
 internal void
 GameGetSoundSamples(game_memory *Memory, game_sound_output_buffer *SoundOutputBuffer, 
                     game_sound_mix_panel *GameSoundMixPanel)
 {
-    game_state *GameState = (game_state *)Memory->PermanentStorage;
+    game_state *GameState = (game_state *)Memory;
 
     game_sound_input_buffer *BackgroundMusic = &GameSoundMixPanel->BackgroundMusic;
+    game_sound_input_buffer *Jump = &GameSoundMixPanel->Jump;
 
     u32 HalfAudioFramesToWriteThisFrame = SoundOutputBuffer->SamplesToWriteThisFrame*2;
+
+    if (GameState->TestActionFrameCount == 100 &&
+        !Jump->IsPlaying)
+    {
+        PlatformLogMessage("Triggered Jump From Sound Code \n");
+        Jump->IsPlaying = true;
+    } else if (!Jump->IsPlaying &&
+               GameState->TestActionFrameCount != 100)
+    {
+        PlatformLogMessageU32("Jump Not Triggered", GameState->TestActionFrameCount);
+    }
 
     for (u32 SampleIndex = 0; 
          SampleIndex < HalfAudioFramesToWriteThisFrame; 
@@ -184,6 +164,14 @@ GameGetSoundSamples(game_memory *Memory, game_sound_output_buffer *SoundOutputBu
         s16 BackgroundMusicSample = BackgroundMusic->Samples[BackgroundMusic->CurrentIndex];
         BackgroundMusic->CurrentIndex++;
 
+        s16 SoundEffectSample = 0;
+
+        if (Jump->IsPlaying)
+        {
+            SoundEffectSample = Jump->Samples[Jump->CurrentIndex];
+            Jump->CurrentIndex++;
+        }
+
         SoundOutputBuffer->SamplesWrittenThisFrame++;
 
         if (BackgroundMusic->CurrentIndex >= BackgroundMusic->SampleCount)
@@ -191,8 +179,10 @@ GameGetSoundSamples(game_memory *Memory, game_sound_output_buffer *SoundOutputBu
             BackgroundMusic->CurrentIndex = 0;
         }
 
+        ResetSoundEffectIfAtEnd(Jump);
+
         r32 MasterVolume = 0.7f;
-        r32 MixedSoundsInFloatSpace = (r32)BackgroundMusicSample*MasterVolume;
+        r32 MixedSoundsInFloatSpace = ((r32)BackgroundMusicSample + (r32)SoundEffectSample)*MasterVolume;
         s16 MixedSounds = (s16)(MixedSoundsInFloatSpace + 0.5);
         SoundOutputBuffer->Samples[SampleIndex] = MixedSounds;
     }
