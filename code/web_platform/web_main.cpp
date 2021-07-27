@@ -419,6 +419,8 @@ int main(int argc, const char * argv[])
     GameMemory.SoundPartitionSize = Megabytes(128);
     GameMemory.TransientStorage = malloc(GameMemory.TransientStorageSize);
 
+    GameMemory.IsInitialized = false;
+
     game_sound_mix_panel GameSoundMixPanel = {};
     LoadSounds(&GameMemory, &GameSoundMixPanel);
 

@@ -76,6 +76,14 @@ internal void
 GameUpdateAndRender(game_memory *GameMemory, game_texture_map *TextureMap, 
                     game_input *GameInput, game_render_commands *RenderCommands)
 {
+    game_state *GameState = (game_state*)GameMemory;
+
+    if (!GameMemory->IsInitialized)
+    {
+        GameState->TestActionFrameCount = 0;
+        GameMemory->IsInitialized = true;
+    }
+
     r32 TileWidthInPixels = 128.0f;
     v2 Min = { 0.0f, 0.0f };
     v2 Max = { TileWidthInPixels, TileWidthInPixels };
@@ -103,17 +111,51 @@ GameUpdateAndRender(game_memory *GameMemory, game_texture_map *TextureMap,
         Max.Y += TileWidthInPixels;
     }
 
+    if (GameState->TestActionFrameCount >= 1)
+    {
+        GameState->TestActionFrameCount--;
+    }
+
+    if (GameInput->Controller.B.EndedDown &&
+        GameState->TestActionFrameCount == 0)
+    {
+        PlatformLogMessage("Jump Triggered From Gamepad \n");
+        GameState->TestActionFrameCount = 100;
+    }
+
+}
+
+internal void
+ResetSoundEffectIfAtEnd(game_sound_input_buffer *SoundEffectBuffer)
+{
+    if (SoundEffectBuffer->CurrentIndex >= SoundEffectBuffer->SampleCount)
+    {
+        SoundEffectBuffer->CurrentIndex = 0;
+        SoundEffectBuffer->IsPlaying = false;
+    }
 }
 
 internal void
 GameGetSoundSamples(game_memory *Memory, game_sound_output_buffer *SoundOutputBuffer, 
                     game_sound_mix_panel *GameSoundMixPanel)
 {
-    game_state *GameState = (game_state *)Memory->PermanentStorage;
+    game_state *GameState = (game_state *)Memory;
 
     game_sound_input_buffer *BackgroundMusic = &GameSoundMixPanel->BackgroundMusic;
+    game_sound_input_buffer *Jump = &GameSoundMixPanel->Jump;
 
     u32 HalfAudioFramesToWriteThisFrame = SoundOutputBuffer->SamplesToWriteThisFrame*2;
+
+    if (GameState->TestActionFrameCount == 100 &&
+        !Jump->IsPlaying)
+    {
+        PlatformLogMessage("Triggered Jump From Sound Code \n");
+        Jump->IsPlaying = true;
+    } else if (!Jump->IsPlaying &&
+               GameState->TestActionFrameCount != 100)
+    {
+        PlatformLogMessageU32("Jump Not Triggered", GameState->TestActionFrameCount);
+    }
 
     for (u32 SampleIndex = 0; 
          SampleIndex < HalfAudioFramesToWriteThisFrame; 
@@ -122,6 +164,14 @@ GameGetSoundSamples(game_memory *Memory, game_sound_output_buffer *SoundOutputBu
         s16 BackgroundMusicSample = BackgroundMusic->Samples[BackgroundMusic->CurrentIndex];
         BackgroundMusic->CurrentIndex++;
 
+        s16 SoundEffectSample = 0;
+
+        if (Jump->IsPlaying)
+        {
+            SoundEffectSample = Jump->Samples[Jump->CurrentIndex];
+            Jump->CurrentIndex++;
+        }
+
         SoundOutputBuffer->SamplesWrittenThisFrame++;
 
         if (BackgroundMusic->CurrentIndex >= BackgroundMusic->SampleCount)
@@ -129,8 +179,10 @@ GameGetSoundSamples(game_memory *Memory, game_sound_output_buffer *SoundOutputBu
             BackgroundMusic->CurrentIndex = 0;
         }
 
+        ResetSoundEffectIfAtEnd(Jump);
+
         r32 MasterVolume = 0.7f;
-        r32 MixedSoundsInFloatSpace = (r32)BackgroundMusicSample*MasterVolume;
+        r32 MixedSoundsInFloatSpace = ((r32)BackgroundMusicSample + (r32)SoundEffectSample)*MasterVolume;
         s16 MixedSounds = (s16)(MixedSoundsInFloatSpace + 0.5);
         SoundOutputBuffer->Samples[SampleIndex] = MixedSounds;
     }

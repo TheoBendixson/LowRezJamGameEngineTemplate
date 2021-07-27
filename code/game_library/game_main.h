@@ -16,4 +16,6 @@ struct game_state
 {
     memory_arena ScratchArena;
     memory_arena SoundsArena;
+
+    s32 TestActionFrameCount;
 };
