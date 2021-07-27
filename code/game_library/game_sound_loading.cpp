@@ -44,4 +44,20 @@ LoadSounds(game_memory *Memory, game_sound_mix_panel *GameSoundMixPanel)
 
         PlatformLogMessage("Setup Sound Input Buffer \n");
     }
+
+    PlatformFreeMemory(BackgroundMusicFile.Contents);
+   
+    read_file_result SoundEffectFile = PlatformReadEntireFile("jump.wav");
+
+    if (SoundEffectFile.ContentsSize > 0)
+    {
+        wav_file_header *WaveHeader = (wav_file_header *)SoundEffectFile.Contents;
+        s16 *SoundSource = (s16*)((u8*)SoundEffectFile.Contents + sizeof(wav_file_header));
+        u32 SampleCount = GetSampleCount(WaveHeader->DataSize);
+        InitializeAndFillSoundInputBuffer(SoundsArena, &GameSoundMixPanel->Jump,
+                                          SoundSource, SampleCount);
+
+    }
+
+    PlatformFreeMemory(SoundEffectFile.Contents);
 }

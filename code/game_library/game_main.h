@@ -9,6 +9,9 @@
 #include "spritesheet.h"
 #include "game_renderer.h"
 
+#define PLATFORM_FREE_MEMORY(name) void name(void *Memory) 
+typedef PLATFORM_FREE_MEMORY(platform_free_memory);
+
 struct game_state
 {
     memory_arena ScratchArena;

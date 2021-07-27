@@ -27,6 +27,7 @@ struct game_sound_input_buffer
 struct game_sound_mix_panel
 {
     game_sound_input_buffer BackgroundMusic;
+    game_sound_input_buffer Jump;
 };
 
 struct game_sound_output_buffer 

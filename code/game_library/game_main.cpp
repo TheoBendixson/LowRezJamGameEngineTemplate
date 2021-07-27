@@ -65,6 +65,8 @@ LoadTextures(game_memory *Memory, game_texture_buffer *GameTextureBuffer,
         PlatformLogMessage("Loaded PNG Was Not Expected Content Size \n");
     }
 
+    PlatformFreeMemory(AssetPackFile.Contents);
+
     PlatformLogMessage("Texture Loading Before Assert \n");
     Assert(GameTextureBuffer->TexturesLoaded < GameTextureBuffer->MaxTextures);
     PlatformLogMessage("End of Texture Loading \n");

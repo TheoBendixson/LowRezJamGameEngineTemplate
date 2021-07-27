@@ -24,6 +24,11 @@
 #define SHOW_LOG                0
 #define SHOW_RENDER_LOOP_LOG    0
 
+PLATFORM_FREE_MEMORY(PlatformFreeMemory)
+{	
+   free(Memory); 
+}
+
 PLATFORM_LOG_MESSAGE(PlatformLogMessage)
 {
 #if SHOW_LOG
